@@ -102,7 +102,7 @@ const isLunch = t => t >= LUNCH_START && t < LUNCH_END;
 const key = (d, t) => `${d}-${t}`;
 const fmtTime = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 
-/* 브리프: 같은 회사 동료 6명. 꼭 참석해야 하는 사람과 선택 참석자가 있다.
+/* 브리프: 같은 회사 동료 6명. 꼭 참여해야 하는 사람과 선택 참여자가 있다.
    기본값은 '선택'이다 — 필수로 지정하는 순간 그 사람에게 비용이 발생하므로,
    주최자가 의식적으로 올려야 한다. (지훈은 이미 지정된 상태로 시작한다)
 
@@ -303,7 +303,7 @@ const paintable = el =>
 const roleControl = p => p.host
   ? `<span class="role required fixed host" title="주최자는 항상 필수 참여자입니다">주최자</span>`
   : `<button type="button" class="role ${p.role}" aria-pressed="${p.role === 'required'}"
-       aria-label="${p.name} 필수 참여자">${p.role === 'required' ? '필수참석' : '선택참석'}</button>`;
+       aria-label="${p.name} 필수 참여자">${p.role === 'required' ? '필수참여' : '선택참여'}</button>`;
 
 function renderPeople() {
   assignAvatars();
@@ -413,6 +413,8 @@ function renderTitleOptions() {
   document.getElementById('title-select').innerHTML =
     TITLE_PRESETS.map(t => `<option value="${t}">${t}</option>`).join('') +
     `<option value="custom">직접 입력…</option>`;
+  document.getElementById('title-select').value = 'custom';
+  document.getElementById('title-custom').hidden = false;
 }
 
 function currentTitle() {
@@ -471,6 +473,7 @@ document.getElementById('dur-select').addEventListener('change', () => {
   const custom = document.getElementById('dur-select').value === 'custom';
   const input = document.getElementById('dur-custom');
   input.hidden = !custom;
+  document.getElementById('dur-unit').hidden = !custom;
   if (custom) input.focus();
   readDuration();
   syncMeta();
@@ -620,7 +623,7 @@ function renderAggregate() {
         <strong>${DAYS[c.d]}요일 ${DATES[c.d]} · ${fmtTime(c.t)}–${fmtTime(c.t + DURATION)}</strong>
         <span class="cand-meta">
           기피 ${c.total === 0 ? '없음' : c.total.toFixed(2)}
-          · 선택 참여자 참석 가능 ${opt}/${opt}
+          · 선택 참여자 참여 가능 ${opt}/${opt}
         </span>
       </div>
       <button class="peek">이름 보기</button>

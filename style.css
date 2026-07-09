@@ -177,6 +177,7 @@ h1 {
 /* 테이블 안 컨트롤(셀렉·날짜·시간)은 종류가 달라도 크기·정렬을 하나로 맞춘다.
    height를 고정하면 date/time 네이티브 아이콘이 눌려서 안 보일 수 있어 min-height로 둔다. */
 .field-table .pick { min-width: 150px; min-height: 34px; }
+#dur-custom { min-width: 70px; width: 70px; }
 
 /* 네이티브 팝업은 그대로 두고 껍데기만 통일한다 */
 select.pick {
@@ -298,7 +299,7 @@ select.pick {
 .person:not(.host) .prow:hover { background: var(--surface); }
 .person.host .prow { cursor: default; }
 
-/* 필수 참석자는 칸 색을 조금만 진하게 둬 목록에서 눈에 먼저 들어오게 한다 */
+/* 필수 참여자는 칸 색을 조금만 진하게 둬 목록에서 눈에 먼저 들어오게 한다 */
 .person.required .prow { background: var(--surface); }
 
 /* .mini는 display:grid라서 [hidden]의 UA 규칙(display:none)을 이긴다.

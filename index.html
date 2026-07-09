@@ -19,7 +19,7 @@
       <button type="button" data-goto="1" class="on" aria-current="step">1 · 주최자 <b>회의 만들기</b></button>
       <button type="button" data-goto="2">2 · 필수 참여자 <b>기피 칠하기</b></button>
       <button type="button" data-goto="3">3 · 주최자 <b>시간 정하기</b></button>
-      <button type="button" data-goto="4">4 · 선택 참여자 <b>참석 여부</b></button>
+      <button type="button" data-goto="4">4 · 선택 참여자 <b>참여 여부</b></button>
     </div>
   </nav>
 
@@ -47,8 +47,8 @@
           <div class="ft-value">
             <div class="combo">
               <select class="pick" id="dur-select"></select>
-              <input class="pick" id="dur-custom" type="number" min="30" max="360" step="30"
-                     placeholder="분" hidden>
+              <input class="pick" id="dur-custom" type="number" min="30" max="360" step="30" hidden>
+              <span class="meta-sep" id="dur-unit" hidden>분</span>
             </div>
           </div>
         </div>
@@ -87,13 +87,10 @@
         <div class="ft-row">
           <div class="ft-label">의견접수 마감일</div>
           <div class="ft-value">
-            <input type="date" class="pick" id="due-date">
-          </div>
-        </div>
-        <div class="ft-row">
-          <div class="ft-label">의견접수 마감시간</div>
-          <div class="ft-value">
-            <input type="time" class="pick" id="due-time">
+            <div class="combo">
+              <input type="date" class="pick" id="due-date">
+              <input type="time" class="pick" id="due-time">
+            </div>
           </div>
         </div>
       </div>
@@ -172,11 +169,11 @@
     <section class="step" data-step="4">
       <header class="head">
         <h1 id="confirmed">회의가 확정되었습니다</h1>
-        <p class="sub">참석 여부만 알려주시면 됩니다</p>
+        <p class="sub">참여 여부만 알려주시면 됩니다</p>
       </header>
 
       <div class="rsvp">
-        <button class="rsvp-btn">참석</button>
+        <button class="rsvp-btn">참여</button>
         <button class="rsvp-btn ghost">불참</button>
       </div>
 
