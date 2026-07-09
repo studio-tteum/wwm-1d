@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회의 시간 정하기</title>
+  <!-- 로고가 아니라 격자 픽토그램. 파일을 늘리지 않으려고 인라인으로 둔다. -->
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a1a1a'/><rect x='7' y='7' width='7' height='7' rx='1.5' fill='white'/><rect x='18' y='7' width='7' height='7' rx='1.5' fill='white'/><rect x='7' y='18' width='7' height='7' rx='1.5' fill='white'/><rect x='18' y='18' width='7' height='7' rx='1.5' fill='white'/></svg>">
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 제품 UI가 아니다. 4개 화면을 넘겨보기 위한 데모 장치다. -->
+  <nav class="demobar" aria-label="프로토타입 단계 이동">
+    <div class="steps">
+      <button type="button" data-goto="1" class="on" aria-current="step">1 · 주최자 <b>회의 만들기</b></button>
+      <button type="button" data-goto="2">2 · 필수 참여자 <b>기피 칠하기</b></button>
+      <button type="button" data-goto="3">3 · 주최자 <b>시간 정하기</b></button>
+      <button type="button" data-goto="4">4 · 선택 참여자 <b>참석 여부</b></button>
+    </div>
+  </nav>
+
+  <main>
+
+    <!-- ── 1. 주최자: 회의 만들기 ── -->
+    <section class="step on" data-step="1" aria-labelledby="s1-title">
+      <header class="head">
+        <h1 id="s1-title">회의를 준비합시다</h1>
+      </header>
+
+      <h2 class="sec-title">어떤 회의인가요?</h2>
+      <div class="field-table">
+        <div class="ft-row">
+          <div class="ft-label">회의명</div>
+          <div class="ft-value">
+            <div class="combo">
+              <select class="pick" id="title-select"></select>
+              <input class="pick" id="title-custom" placeholder="회의 이름 입력" maxlength="20" hidden>
+            </div>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">회의 시간</div>
+          <div class="ft-value">
+            <div class="combo">
+              <select class="pick" id="dur-select"></select>
+              <input class="pick" id="dur-custom" type="number" min="30" max="360" step="30"
+                     placeholder="분" hidden>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <h2 class="sec-title">언제 해야 하나요?</h2>
+      <div class="field-table">
+        <div class="ft-row">
+          <div class="ft-label">날짜</div>
+          <div class="ft-value">
+            <div class="date-mode" role="radiogroup" aria-label="날짜 결정 방식">
+              <label class="radio-opt">
+                <input type="radio" name="date-mode" id="mode-range" value="range" checked>
+                <span>날짜를 정해야 해요</span>
+              </label>
+              <div class="date-mode-body" id="body-range">
+                <div class="combo">
+                  <input type="date" class="pick" id="start-date">
+                  <span class="meta-sep" aria-hidden="true">–</span>
+                  <input type="date" class="pick" id="end-date">
+                </div>
+                <p class="field-error" id="range-error" role="status"></p>
+                <p class="note" id="range-note" hidden></p>
+              </div>
+
+              <label class="radio-opt">
+                <input type="radio" name="date-mode" id="mode-fixed" value="fixed">
+                <span>원하는 날짜가 있어요</span>
+              </label>
+              <div class="date-mode-body" id="body-fixed" hidden>
+                <input type="date" class="pick" id="fixed-date">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">의견접수 마감일</div>
+          <div class="ft-value">
+            <input type="date" class="pick" id="due-date">
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">의견접수 마감시간</div>
+          <div class="ft-value">
+            <input type="time" class="pick" id="due-time">
+          </div>
+        </div>
+      </div>
+
+      <h2 class="sec-title">누가 와야 하나요?</h2>
+
+      <ul class="people" id="people"></ul>
+
+      <div class="adder">
+        <button type="button" class="add-btn" id="add-btn">추가하기</button>
+      </div>
+
+      <div class="modal-overlay" id="roster-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="roster-modal-title">
+          <h3 id="roster-modal-title">동료 추가</h3>
+          <ul class="roster-list" id="roster-list"></ul>
+          <button type="button" class="modal-close" id="roster-modal-close">닫기</button>
+        </div>
+      </div>
+
+      <p class="note">마감까지 의견을 내지 않아도 회의는 진행됩니다. 캘린더상 불가능한 시간만 반영됩니다.</p>
+
+      <footer class="foot">
+        <button type="button" class="submit" id="send" data-goto="2">필수 참여자에게 알림 보내기</button>
+      </footer>
+    </section>
+
+    <!-- ── 2. 필수 참여자: 기피 칠하기 ⭐ ── -->
+    <section class="step" data-step="2">
+      <header class="head">
+        <h1>피하고 싶은 시간을 칠해주세요</h1>
+        <p class="sub" id="meet-sub">팀 회의 · 1시간 · 다음 주</p>
+        <p class="note">칠한 내용은 다른 참여자에게 보이지 않습니다.</p>
+      </header>
+
+      <div class="board">
+        <div class="grid" id="grid-input" aria-label="다음 주 시간표"></div>
+        <ul class="legend">
+          <li><span class="sw sw-ramp"></span>가능 → 피하고 싶음</li>
+          <li><span class="sw sw-busy"></span>캘린더상 일정 있음</li>
+          <li><span class="sw sw-lunch"></span>근무시간 아님</li>
+        </ul>
+      </div>
+
+      <footer class="foot">
+        <button class="submit" data-goto="3">제출하기</button>
+        <p class="foot-note">칠하지 않아도 회의는 진행됩니다.</p>
+      </footer>
+    </section>
+
+    <!-- ── 3. 주최자: 시간 정하기 ── -->
+    <section class="step" data-step="3">
+      <header class="head">
+        <h1>초록에 가까운 시간을 고르세요</h1>
+        <p class="sub">필수 참여자 4명의 의견이 같은 무게로 합산되었습니다</p>
+        <p class="note">누가 무엇을 칠했는지는 기본적으로 보이지 않습니다.</p>
+      </header>
+
+      <div class="board">
+        <div class="grid" id="grid-agg" aria-label="합산 결과"></div>
+        <ul class="legend">
+          <li><span class="sw sw-ramp"></span>기피가 쌓인 정도</li>
+          <li><span class="sw sw-busy"></span>필수 참여자 불가 · 후보 제외</li>
+          <li><span class="sw sw-lunch"></span>근무시간 아님</li>
+        </ul>
+      </div>
+
+      <h2 class="cand-title">추천 시간</h2>
+      <ul class="cands" id="cands"></ul>
+      <p class="note" id="cands-empty" hidden>조건에 맞는 시간이 없습니다. 회의 길이를 줄이거나 참여자 조건을 조정해보세요.</p>
+
+      <footer class="foot">
+        <button class="submit" data-goto="4">이 시간으로 확정</button>
+      </footer>
+    </section>
+
+    <!-- ── 4. 선택 참여자: 알림 ── -->
+    <section class="step" data-step="4">
+      <header class="head">
+        <h1 id="confirmed">회의가 확정되었습니다</h1>
+        <p class="sub">참석 여부만 알려주시면 됩니다</p>
+      </header>
+
+      <div class="rsvp">
+        <button class="rsvp-btn">참석</button>
+        <button class="rsvp-btn ghost">불참</button>
+      </div>
+
+      <p class="closing">
+        당신에게는 <strong>아무것도 묻지 않았습니다.</strong><br>
+        올 수 있는지는 캘린더가 이미 알고 있었습니다.
+      </p>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
