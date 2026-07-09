@@ -318,9 +318,6 @@ function renderPeople() {
       </div>
       <div class="mini" hidden></div>
     </li>`).join('');
-
-  const n = required().length;
-  document.getElementById('send').textContent = `필수 참여자 ${n}명에게 알림 보내기`;
 }
 
 document.getElementById('people').addEventListener('click', e => {

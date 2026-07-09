@@ -145,7 +145,7 @@ h1 {
   margin-top: 16px;
   border-top: 1px solid var(--line);
 }
-.ft-row { display: grid; grid-template-columns: 120px 1fr; }
+.ft-row { display: grid; grid-template-columns: 160px 1fr; }
 .ft-label, .ft-value {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
@@ -530,3 +530,6 @@ button.role.required:hover { background: #000; border-color: #000; }
 .submit:hover { background: #000; }
 .submit:active { transform: translateY(1px); }
 .foot-note { font-size: 13px; color: var(--ink-sub); }
+
+/* 화면 1의 알림 보내기 버튼만 컨테이너 폭 가득 채운다 */
+#send { width: 100%; }
