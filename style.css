@@ -668,12 +668,10 @@ button.role.required:hover { background: #000; border-color: #000; }
 }
 .submit:hover { background: #000; }
 .submit:active { transform: translateY(1px); }
-.foot-note { font-size: 13px; color: var(--ink-sub); }
 
 /* 컨테이너 폭을 가득 채우는 CTA */
 .submit.full { width: 100%; }
 .foot-col { flex-direction: column; align-items: stretch; gap: 12px; }
-.foot-col .foot-note { text-align: center; }
 
 /* ── 2. 참여자 화면: 회의 일정 표 · 피커 · 기본값 · 캘린더 수정 ── */
 .ft-text { font-size: 13px; font-weight: 500; padding: 6px 0; }
