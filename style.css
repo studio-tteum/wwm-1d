@@ -20,7 +20,10 @@
   --ok: hsl(210 92% 95%);         /* 가능 · 하늘 */
   --avoid-min: hsl(210 55% 88%);  /* 약하게 피하고 싶음 · 파랑에 가까움 — app.js가 이 값을 읽어 격자 램프를 만든다 */
   --avoid-max: hsl(0 80% 58%);    /* 정말 피하고 싶음 · 빨강 */
+  --avoid-deep: hsl(0 72% 26%);   /* 업무 사유가 겹친 시간 · 검붉음 — 빨강 그 너머 */
   --chosen: hsl(210 90% 45%);     /* 주최자가 고른 시간 · 진한 파랑 — 가능(하늘)과 같은 색조 */
+  --hatch: repeating-linear-gradient(45deg,
+    rgba(255, 255, 255, 0.2) 0 2px, transparent 2px 10px); /* 업무 사유 빗금 — 격자 칸과 범례가 같은 값을 쓴다 */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -208,13 +211,16 @@ select.pick {
   accent-color: var(--ink);
   cursor: pointer;
 }
-.date-mode-body { margin: 2px 0 4px; }
+/* 폼은 자기 라디오에 붙이고(위 6px) 다음 라디오와는 띄운다(아래 16px) —
+   간격이 균일하면 폼이 어느 라디오의 것인지 소속이 안 읽힌다 */
+.date-mode-body { margin: -4px 0 6px; }
 .date-mode-body[hidden] { display: none; }
 
 /* ── 1. 인원 추가 ── */
 .adder { display: flex; justify-content: center; margin-top: 16px; }
 
 .add-btn {
+  width: 100%; /* 목록과 같은 폭 — 가운데 섬처럼 뜨지 않고 행의 연장으로 읽힌다 */
   font: inherit; font-size: 14px; font-weight: 600;
   color: var(--ink);
   background: #fff;
@@ -240,6 +246,7 @@ select.pick {
 .modal-overlay[hidden] { display: none; }
 
 .modal {
+  position: relative; /* 우상단 X(.modal-x)의 기준 */
   width: 420px;
   max-height: 70vh;
   overflow-y: auto;
@@ -249,6 +256,19 @@ select.pick {
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.18);
 }
 .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 16px; }
+
+/* 우상단 닫기 — 취소 버튼 대신. 오버레이 클릭·ESC와 같은 일을 한다 */
+.modal-x {
+  position: absolute; top: 14px; right: 14px;
+  width: 28px; height: 28px;
+  font: inherit; font-size: 18px; line-height: 1;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--ink-sub);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.modal-x:hover { background: var(--surface); color: var(--ink); }
 
 .roster-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
 .roster-tab {
@@ -354,7 +374,7 @@ select.pick {
 /* ── 1. 전체 참여자 일정 ──
    프로필을 한 줄로 늘어놓고, 고른 사람의 일정만 화면 2와 같은 격자(.grid)로 보여준다.
    여기도 '불가능'만 나온다. */
-.cs-avatars { display: flex; justify-content: center; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
+.cs-avatars { display: flex; justify-content: flex-start; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
 .cs-avatar-btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 8px 10px;
@@ -562,37 +582,76 @@ button.role.required:hover { background: #000; border-color: #000; }
 #grid-agg .cell.startable { cursor: pointer; }
 #grid-agg .cell.startable:hover { box-shadow: inset 0 0 0 2px var(--ink); }
 
-/* 선택된 시간 — 회의 길이만큼 진한 파랑으로 채워지고 시작 칸에 회의명이 새겨진다 */
-.cell.chosen {
-  background: var(--chosen);
+/* 일정 칸은 호버 팝업의 앵커 — 화면 1과 같은 테두리 피드백 */
+#grid-agg .cell.busy:hover,
+#grid-agg .cell.busy.picked { box-shadow: inset 0 0 0 2px var(--ink); }
+#agg-stage { margin: 0; } /* 스테이지 자체 여백은 화면 1 배치용 — 여기선 .board가 간격을 담당한다 */
+
+/* 칸 안에 새겨지는 라벨의 공통 문법 — 선택 칸(회의명)과 업무 사유 칸(사유)이 같은 글자를 쓴다 */
+.cell.chosen, .cell.reason {
   display: flex; align-items: center; justify-content: center;
   padding: 0 2px;
   font-size: 9px; font-weight: 600; color: #fff;
   text-align: center; line-height: 1.2;
   overflow: hidden;
 }
+/* 선택된 시간 — 회의 길이만큼 진한 파랑으로 채워지고 시작 칸에 회의명이 새겨진다 */
+.cell.chosen { background: var(--chosen); }
 
-/* 1페이지 미리보기 격자는 칠하는 곳이 아니다 — 가능(파란) 칸은 선택 불가,
-   일정(빨강) 칸만 클릭하면 옆에 .cs-popover가 떠서 무슨 일정인지 보여준다. */
+/* 업무 사유 칸 — 빗금(--hatch) + 라벨 판.
+   JS가 블록 경계에 r-start/r-end를 계속 달아둔다 — 다음 마커 후보가 쓸 훅. */
+.cell.reason { position: relative; }
+.cell.reason::before {
+  content: ''; position: absolute; inset: 0; pointer-events: none;
+  background: var(--hatch);
+}
+/* 사유 라벨은 span으로 감싸서 빗금 위에 — app.js에서 라벨을 <i class="lb">로 렌더 */
+.cell.reason .lb { position: relative; z-index: 1; font-style: normal;
+  background: var(--avoid-max); padding: 0 3px; border-radius: 2px; }
+
+/* pick 브러시 동안 업무 사유 칸은 반응하지 않는다 — 커서와 호버도 그렇게 말해야 한다 */
+#grid-input:not(.brush-reason) .cell.reason { cursor: not-allowed; }
+#grid-input:not(.brush-reason) .cell.reason:hover { box-shadow: none; }
+
+/* 1페이지 미리보기 격자는 칠하는 곳이 아니다 — 가능(파란) 칸은 반응하지 않고,
+   일정(빨강) 칸에 올리면 옆에 .cs-popover가 떠서 무슨 일정인지 보여준다. */
 #grid-combined .cell { cursor: default; }
 #grid-combined .cell:hover { box-shadow: none; }
-#grid-combined .cell.busy { cursor: pointer; }
 #grid-combined .cell.busy:hover,
 #grid-combined .cell.busy.picked { box-shadow: inset 0 0 0 2px var(--ink); }
 
 /* ── legend ── */
 .legend {
-  display: flex; gap: 22px; list-style: none; justify-content: center;
+  display: flex; gap: 22px; list-style: none; justify-content: flex-start;
+  padding-left: 56px; /* 격자의 시간 눈금 열(56px)만큼 들여 첫 날짜 칸과 정렬 */
   margin-top: 18px; font-size: 12px; color: var(--ink-sub);
 }
 .legend li { display: flex; align-items: center; gap: 7px; }
 .sw { width: 24px; height: 12px; border-radius: 2px; border: 1px solid var(--line); }
 .sw-lunch { background: var(--lunch); }
 .sw-busy { background-color: var(--busy); }
+.sw-ok { background: var(--ok); }
 .sw-ramp {
   width: 84px; border: 0;
   background: linear-gradient(90deg,
     var(--ok) 0%, var(--ok) 22%, var(--avoid-min) 30%, var(--avoid-max) 100%);
+}
+/* 화면 2의 램프는 역순(빨강→옅음) — 개인의 기피는 칠할수록 옅어진다는 이야기를 담는다.
+   화면 3의 램프(.deep)는 정방향 유지 — 여럿의 기피가 쌓일수록 진해지는 척도라 방향이 다르다. */
+.sw-ramp.rev {
+  background: linear-gradient(90deg,
+    var(--avoid-max) 0%, var(--avoid-min) 70%, var(--ok) 78%, var(--ok) 100%);
+}
+/* 화면 3 램프는 빨강 너머까지 — 업무 사유가 겹치면 검붉게 가라앉는다 */
+.sw-ramp.deep {
+  background: linear-gradient(90deg,
+    var(--ok) 0%, var(--ok) 16%, var(--avoid-min) 24%, var(--avoid-max) 68%, var(--avoid-deep) 100%);
+}
+.sw-reason {
+  border: 0;
+  background-color: var(--avoid-max);
+  /* 칸(.cell.reason::before)과 같은 빗금 — 범례가 실물과 같은 문법으로 말한다 */
+  background-image: var(--hatch);
 }
 
 /* ── 3. 선택 확인 표 ── */
@@ -621,7 +680,6 @@ button.role.required:hover { background: #000; border-color: #000; }
 
 .sec-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-top: 44px; }
 .sec-row .sec-title { margin-top: 0; }
-.sec-actions { display: flex; align-items: center; gap: 8px; }
 
 /* '기본값'을 라벨로 한 번만 쓰고 두 동작(불러오기·저장하기)을 한 덩어리로 묶는다 */
 .sec-count { font-size: 13px; font-weight: 600; color: var(--ink-sub); }
@@ -660,15 +718,6 @@ button.role.required:hover { background: #000; border-color: #000; }
 /* 최종 확인 표의 행 — 값은 왼쪽, 그 값을 고치러 가는 '수정'은 오른쪽 끝 */
 .ft-value.sum-line { flex-direction: row; align-items: center; justify-content: space-between; }
 
-/* '나'는 링 같은 기호 대신 문자로 못 박는다 — 이름이 '지훈(나)'로 표시된다.
-   .cs-avatar-btn span(0,1,1)보다 구체도가 높아야 색이 이긴다 */
-.cs-avatar-btn .me-name { color: var(--ink); font-weight: 600; }
-
-/* 남의 개인 뷰는 읽기 전용 — 칸이 포인터를 받지 않으니 어떤 핸들러도 칠할 수 없다
-   ('나'와 그룹 뷰는 readonly가 안 붙어 바로 칠할 수 있다) */
-#grid-input.readonly .cell { pointer-events: none; }
-
-.cs-avatars + .board { margin-top: 20px; }
 
 /* 보조 동선이라 박스로 세우지 않는다 — 도구 줄 왼쪽에 조용한 텍스트로 둔다 */
 .fix-cal {
@@ -685,3 +734,53 @@ button.role.required:hover { background: #000; border-color: #000; }
   transition: text-decoration-color 120ms ease;
 }
 .fix-cal-link:hover { text-decoration-color: var(--ink); }
+
+/* ── 2. 기피 브러시: 특별한 사유가 없어요(기본) / 업무 사유가 있어요 ──
+   보기 전환(아바타)과 달리 '무엇을 칠할지'를 정한다. 스와치가 곧 격자에 칠해질 모양이다. */
+.brush-row { display: flex; gap: 8px; margin-top: 16px; }
+.brush {
+  display: inline-flex; align-items: center; gap: 8px;
+  font: inherit; font-size: 13px; font-weight: 500;
+  color: var(--ink-sub);
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease, color 120ms ease;
+}
+.brush:hover { border-color: var(--line-strong); background: var(--surface); }
+.brush.on { border-color: var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; }
+.brush .sw-ramp { width: 34px; } /* 버튼 안에선 램프를 짧게 — 라벨이 주인공 */
+
+/* ── 2. 업무 사유 모달 — 시작·종료 일시(날짜+시간)와 사유를 받는다 ──
+   라벨이 짧아 본문 표(160px)보다 열을 좁혀
+   420px 모달 안에서 날짜·시간 셀렉트가 한 줄에 들어간다(가로 스크롤 방지).
+   88px = '시작일시' 4글자 + 좌우 패딩이 한 줄로 서는 최소 폭. */
+#reason-modal .ft-row { grid-template-columns: 88px 1fr; }
+#reason-modal .ft-label { white-space: nowrap; }
+#reason-modal .field-table .pick { min-width: 0; }
+#reason-modal #reason-text { flex: 1; min-width: 120px; }
+#reason-modal .modal-actions { display: flex; gap: 8px; margin-top: 18px; }
+#reason-modal .modal-actions > * { flex: 1; }
+
+/* 등록 의도 토글(이번만|매주) — 폼 필드보다 위, 첫 갈림길.
+   매주를 고르면 아래 표가 날짜 문법에서 요일 문법으로 통째로 바뀐다 */
+.seg {
+  display: flex;
+  background: var(--surface-strong);
+  border-radius: 9px;
+  padding: 3px;
+  margin-bottom: 14px;
+}
+.seg button {
+  flex: 1;
+  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 0;
+  border: 0; border-radius: 7px;
+  background: transparent;
+  color: var(--ink-sub);
+  cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.seg button.on { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12); }

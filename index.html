@@ -17,7 +17,7 @@
   <nav class="demobar" aria-label="프로토타입 단계 이동">
     <div class="steps">
       <button type="button" data-goto="1" class="on" aria-current="step">1 · 주최자 <b>회의 만들기</b></button>
-      <button type="button" data-goto="2">2 · 필수 참여자 <b>기피 칠하기</b></button>
+      <button type="button" data-goto="2">2 · 참여자 <b>시간 선택하기</b></button>
       <button type="button" data-goto="3">3 · 주최자 <b>시간 정하기</b></button>
     </div>
   </nav>
@@ -110,7 +110,7 @@
         <button type="button" class="add-btn" id="add-btn">인원 추가하기</button>
       </div>
 
-      <h2 class="sec-title">아래 사항이 맞나요?</h2>
+      <h2 class="sec-title">이 기간으로 괜찮을까요?</h2>
       <div class="cs-avatars" id="cs-avatars"></div>
       <div class="cs-stage" id="cs-stage">
         <div class="grid" id="grid-combined" aria-label="선택한 인원의 일정"></div>
@@ -175,14 +175,15 @@
       </div>
 
       <footer class="foot">
-        <button type="button" class="submit full" id="send" data-goto="2">필수 참여자에게 알림 보내기</button>
+        <button type="button" class="submit full" id="send" data-goto="2">모든 참여자에게 알림 보내기</button>
       </footer>
     </section>
 
     <!-- ── 2. 필수 참여자: 기피 칠하기 ⭐ ── -->
     <section class="step" data-step="2">
       <header class="head">
-        <h1>회의에 참여합시다</h1>
+        <!-- 보는 사람의 역할을 첫 문장으로 못 박는다 — goto(2)가 '나'의 이름·역할로 채운다 -->
+        <h1 id="s2-title">회의에 참여합시다</h1>
       </header>
 
       <h2 class="sec-title">회의 일정</h2>
@@ -207,7 +208,15 @@
 
       <h2 class="sec-title">피하고 싶은 시간을 칠해주세요</h2>
 
-      <div class="cs-avatars" id="in-avatars"></div>
+      <!-- 무엇을 칠할지 — 기피의 두 종류. 스와치가 격자에 칠해질 모양 그대로다. -->
+      <div class="brush-row" role="radiogroup" aria-label="기피 종류">
+        <button type="button" class="brush on" data-brush="pick" aria-pressed="true">
+          <span class="sw sw-ramp rev"></span>특별한 사유가 없어요
+        </button>
+        <button type="button" class="brush" data-brush="reason" aria-pressed="false">
+          <span class="sw sw-reason"></span>업무 사유가 있어요
+        </button>
+      </div>
 
       <!-- 격자를 조작하는 도구는 격자 바로 위에 — 왼쪽은 맥락(캘린더 수정), 오른쪽은 동작 버튼 -->
       <div class="board-tools">
@@ -216,18 +225,83 @@
           <a class="fix-cal-link" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">캘린더 수정하기<span aria-hidden="true"> ↗</span></a>
         </div>
         <button type="button" class="tool-btn" id="save-default">기본값 저장하기</button>
-        <button type="button" class="tool-btn" id="load-default">기본값 불러오기</button>
-        <button type="button" class="tool-btn" id="clear-picks">초기화</button>
+        <button type="button" class="tool-btn" id="load-default">불러오기</button>
+        <button type="button" class="tool-btn" id="clear-picks">모두 지우기</button>
       </div>
 
       <div class="board">
         <div class="grid" id="grid-input" aria-label="다음 주 시간표"></div>
         <ul class="legend">
-          <li><span class="sw sw-ramp"></span>가능 → 피하고 싶음</li>
+          <li><span class="sw sw-ok"></span>가능</li>
+          <li><span class="sw sw-ramp rev"></span>피하고 싶음 — 칠할수록 옅어짐</li>
+          <li><span class="sw sw-reason"></span>업무 사유</li>
           <li><span class="sw sw-busy"></span>캘린더상 일정 있음</li>
           <li><span class="sw sw-lunch"></span>근무시간 아님</li>
         </ul>
-        <p class="note" id="in-note" hidden>다른 참여자의 기피는 이 화면에 보이지 않습니다. 모든 의견은 같은 무게로 합산되어 주최자의 결정 화면에 나타납니다.</p>
+      </div>
+
+      <!-- 업무 사유 기피 — 칸을 고르면 여기서 시간 범위와 사유를 받는다.
+           총량 밖(안 옅어짐)의 무게에는 입력이라는 값을 치른다. -->
+      <div class="modal-overlay" id="reason-modal" hidden>
+        <div class="modal" role="dialog" aria-modal="true" aria-labelledby="reason-modal-title">
+          <button type="button" class="modal-x" id="reason-close" aria-label="닫기">×</button>
+          <h3 id="reason-modal-title">업무 사유가 있어요</h3>
+          <!-- 등록 의도가 첫 갈림길 — 매주면 폼이 날짜가 아니라 요일로 말한다 -->
+          <div class="seg" id="reason-mode">
+            <button type="button" class="on" data-mode="once">이번만</button>
+            <button type="button" data-mode="weekly">매주</button>
+          </div>
+          <div class="field-table">
+            <div class="ft-row" data-mode="once">
+              <div class="ft-label">시작일시</div>
+              <div class="ft-value">
+                <div class="combo">
+                  <select class="pick" id="reason-start-day"></select>
+                  <select class="pick" id="reason-start"></select>
+                </div>
+              </div>
+            </div>
+            <div class="ft-row" data-mode="once">
+              <div class="ft-label">종료일시</div>
+              <div class="ft-value">
+                <div class="combo">
+                  <select class="pick" id="reason-end-day"></select>
+                  <select class="pick" id="reason-end"></select>
+                </div>
+              </div>
+            </div>
+            <div class="ft-row" data-mode="weekly" hidden>
+              <div class="ft-label">요일</div>
+              <div class="ft-value">
+                <select class="pick" id="reason-wk-day"></select>
+              </div>
+            </div>
+            <div class="ft-row" data-mode="weekly" hidden>
+              <div class="ft-label">시간</div>
+              <div class="ft-value">
+                <div class="combo">
+                  <select class="pick" id="reason-wk-start"></select>
+                  <span class="meta-sep">~</span>
+                  <select class="pick" id="reason-wk-end"></select>
+                </div>
+              </div>
+            </div>
+            <div class="ft-row">
+              <div class="ft-label">사유</div>
+              <div class="ft-value">
+                <div class="combo">
+                  <select class="pick" id="reason-select"></select>
+                  <input class="pick" id="reason-text" placeholder="예: 오전 반차" maxlength="30" hidden>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p class="field-error" id="reason-error" role="status"></p>
+          <div class="modal-actions">
+            <button type="button" class="modal-close" id="reason-delete" hidden>삭제</button>
+            <button type="button" class="submit" id="reason-confirm">등록</button>
+          </div>
+        </div>
       </div>
 
       <footer class="foot foot-col">
@@ -243,19 +317,24 @@
         <p class="sub" id="agg-sub"></p>
       </header>
 
-      <div class="sec-row">
-        <h2 class="sec-title">일정을 선택해주세요</h2>
-        <div class="sec-actions">
-          <button type="button" class="tool-btn" id="agg-refresh">캘린더 새로고침</button>
-        </div>
-      </div>
+      <h2 class="sec-title">일정을 선택해주세요</h2>
 
       <div class="cs-avatars" id="agg-avatars"></div>
 
+      <!-- 격자를 조작하는 도구는 격자 바로 위 회색 트레이에 — 화면 2와 같은 시각 언어 -->
+      <div class="board-tools">
+        <button type="button" class="tool-btn" id="agg-refresh">캘린더 새로고침</button>
+      </div>
+
       <div class="board">
-        <div class="grid" id="grid-agg" aria-label="합산 결과"></div>
+        <!-- 화면 1과 같은 팝오버 부품 — 일정 칸에 올리면 누구의 무슨 일정인지 뜬다 -->
+        <div class="cs-stage" id="agg-stage">
+          <div class="grid" id="grid-agg" aria-label="합산 결과"></div>
+          <div class="cs-popover" id="agg-popover" role="status"></div>
+        </div>
         <ul class="legend">
-          <li><span class="sw sw-ramp"></span>기피가 쌓인 정도</li>
+          <li><span class="sw sw-ramp deep"></span>기피가 쌓인 정도</li>
+          <li><span class="sw sw-reason"></span>업무 사유 있음</li>
           <li><span class="sw sw-busy"></span><span id="agg-legend-busy">필수 참여자 불가 · 후보 제외</span></li>
           <li><span class="sw sw-lunch"></span>근무시간 아님</li>
         </ul>
@@ -271,6 +350,10 @@
         <div class="ft-row">
           <div class="ft-label">참석자 현황</div>
           <div class="ft-value"><span class="ft-text" id="pick-att">—</span></div>
+        </div>
+        <div class="ft-row" id="pick-reason-row" hidden>
+          <div class="ft-label">업무 사유가 있는 사람</div>
+          <div class="ft-value"><span class="ft-text" id="pick-reason"></span></div>
         </div>
         <div class="ft-row" id="pick-avoid-row" hidden>
           <div class="ft-label">피하고 싶어한 사람</div>

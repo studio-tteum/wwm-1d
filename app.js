@@ -1,6 +1,6 @@
 /* ── 날짜 ──
-   기간은 이제 실제 달력(시작~종료)에서 나온다. "다음 주"는 화면에 박힌 문자열이 아니라
-   오늘 날짜 기준으로 계산한 값이다 — 언제 열어도 진짜 다음 주 월~금이 기본값이 된다. */
+   기간은 이제 실제 달력(시작~종료)에서 나온다. 기본값은 화면에 박힌 문자열이 아니라
+   오늘 날짜 기준으로 계산한 값이다 — 언제 열어도 다음 주 월요일부터 2주가 기본값이 된다. */
 const WD = ['일', '월', '화', '수', '목', '금', '토'];
 
 function fmtMD(date) { return `${date.getMonth() + 1}/${date.getDate()}`; }
@@ -28,7 +28,7 @@ function startOfWeek(date) {
 }
 function defaultRange() {
   const nextMon = addDays(startOfWeek(new Date()), 7);
-  return [nextMon, addDays(nextMon, 4)];
+  return [nextMon, addDays(nextMon, 11)]; // 다음 주 월요일부터 2주 — 다다음 주 금요일까지
 }
 
 let DAYS = [];    // 요일 라벨 (동적)
@@ -105,23 +105,28 @@ const fmtTime = t => `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
 
    busy는 시간 단위로 적는다('1-15' = 1번째 요일의 15시) + 무슨 일정인지 제목을 함께 단다.
    picks도 같은 표기지만 제목이 없는 순수 문자열이다 — 기피는 이유를 안 남긴다.
+   reasons는 '업무 사유가 있는' 기피 — 아직 캘린더에 못 적힌 사실(외근 예상 등).
+   총량 밖이라 옅어지지 않는 대신 사유(notes)를 입력해야 하고,
+   주최자에게 이름·사유가 함께 전달된다(applyChoice).
    격자가 30분 단위라 아래 normalizeFixtures()가 한 번 돌면서 각 시간을
    반시간 2칸으로 펼친다 — 시나리오 데이터를 사람이 시간 단위로 읽고 쓰기 위해서다. */
 const PEOPLE = [
   { name: '서연', role: 'required', host: true, team: '기획팀',
     busy: [{ h: '1-15', title: '외부 미팅' }, { h: '1-16', title: '외부 미팅' }],
-    picks: ['0-9', '4-17'] },
+    picks: ['0-9', '4-17'], reasons: ['4-14'], // 금 오후 외부 일정 — 하늘과 겹쳐 검붉어진다
+    notes: { '4-14': '외부 일정이 잡힐 수 있음' } },
   { name: '지훈', role: 'required', team: '개발팀', busyDays: [2, 3], busyDayTitle: '외근',
     busy: [{ h: '1-16', title: '팀장 면담' }], // 서연의 외부 미팅(화 15~17시)과 겹치는 16시
-    picks: [] },
+    picks: [], reasons: [], notes: {} },
   { name: '민수', role: 'required', team: '디자인팀',
     busy: [{ h: '0-9', title: '주간 보고' }, { h: '0-10', title: '주간 보고' }, { h: '2-14', title: '디자인 리뷰' }],
-    picks: ['0-13', '1-13', '4-13', '0-9'] },
+    picks: ['0-13', '1-13', '4-13', '0-9'], reasons: [] },
   { name: '하늘', role: 'required', team: '마케팅팀',
     busy: [{ h: '4-16', title: '거래처 미팅' }, { h: '4-17', title: '거래처 미팅' }],
-    picks: ['1-13', '4-13', '1-9'] },
-  { name: '예은', role: 'optional', team: '개발팀', busy: [{ h: '0-14', title: '면접' }], picks: [] },
-  { name: '태윤', role: 'optional', team: '디자인팀', busy: [], picks: [] }
+    picks: ['1-13', '4-13', '1-9'], reasons: ['4-14', '4-15'], // 캘린더엔 아직 없는 사실
+    notes: { '4-14': '거래처 미팅 준비', '4-15': '거래처 미팅 준비' } },
+  { name: '예은', role: 'optional', team: '개발팀', busy: [{ h: '0-14', title: '면접' }], picks: [], reasons: [] },
+  { name: '태윤', role: 'optional', team: '디자인팀', busy: [], picks: [], reasons: [] }
 ];
 
 /* 추가할 수 있는 인원 — 카테고리(팀)로 분류해 모달에서 필터링한다. */
@@ -135,11 +140,12 @@ const TEAMS = ['전체', '기획팀', '디자인팀', '개발팀', '마케팅팀
 let rosterTeam = '전체';
 let REMOVED = []; // ×로 뺀 사람 — 원래 데이터(불가능 시간·역할·팀)를 그대로 들고 있다가 다시 추가하면 복원한다
 
-/* '나'(지훈)는 화면 2에서 실제로 칠하는 사람이다. 지훈을 삭제하면 다음 남은
-   필수 참여자에게 이 역할을 넘긴다 — 서연은 항상 필수라 받는 사람이 없어 끊기는 일은 없다. */
+/* '나'(지훈)는 화면 2에서 실제로 칠하는 사람이다. 의견은 모든 참여자에게서 받으므로
+   역할이 선택으로 바뀌어도 '나'는 유지된다 — 화면 2 제목이 역할을 알려줄 뿐이다.
+   지훈을 목록에서 뺐을 때만 다음 필수 참여자에게 넘긴다(서연은 항상 필수라 끊기지 않는다). */
 let me = PEOPLE.find(p => p.name === '지훈');
 function ensureMe() {
-  if (PEOPLE.includes(me) && me.role === 'required') return;
+  if (PEOPLE.includes(me)) return;
   me = required()[0];
 }
 
@@ -160,16 +166,31 @@ function normalizeFixtures() {
   PEOPLE.forEach(p => {
     if (p.busy) p.busy = p.busy.flatMap(expandBusyHour);
     if (p.picks) p.picks = p.picks.flatMap(expandHour);
+    if (p.reasons) p.reasons = p.reasons.flatMap(expandHour);
+    if (p.notes) p.notes = Object.fromEntries(Object.entries(p.notes)
+      .flatMap(([h, txt]) => expandHour(h).map(k => [k, txt])));
   });
 }
 
 const required = () => PEOPLE.filter(p => p.role === 'required');
 const optional = () => PEOPLE.filter(p => p.role === 'optional');
 
+/* 열 d와 같은 요일인 격자 열 전부 — '매주'는 어디서든 이 7일 주기 하나로 계산한다
+   (busyDays, 매주 사유 등록, 매주 블록 감지, 기본값 시드가 전부 이걸 쓴다). */
+function weeklyIndexes(d) {
+  const out = [];
+  for (let dd = d % 7; dd < DAYS.length; dd += 7) out.push(dd);
+  return out;
+}
+
+/* busyDays는 '매주 그 요일'이다 — 격자가 몇 주든 같은 요일마다 되풀이된다(지훈의 정기 외근).
+   브리프의 "특정 요일에 외근이 많아요"가 주 단위 패턴이라서다. */
+const busyDayIndexes = p => (p.busyDays || []).flatMap(weeklyIndexes);
+
 /* 캘린더가 아는 '불가능'. 사람이 입력하지 않는다. */
 function busySlots(p) {
   const s = new Set((p.busy || []).map(b => b.key));
-  (p.busyDays || []).forEach(d => SLOTS.forEach(t => s.add(key(d, t))));
+  busyDayIndexes(p).forEach(d => SLOTS.forEach(t => s.add(key(d, t))));
   return s;
 }
 
@@ -181,7 +202,7 @@ function busyTitle(p, slotKey) {
     title = found.title;
   } else {
     const day = Number(slotKey.split('-')[0]);
-    title = (p.busyDays || []).includes(day) ? (p.busyDayTitle || '다른 일정') : '다른 일정';
+    title = (p.busyDays || []).includes(day % 7) ? (p.busyDayTitle || '다른 일정') : '다른 일정';
   }
   // 전체/필수 참여자 보기(합산 대상)는 이미 "이름 · 제목" 형태라 p.name이 없다 — 그때만 건너뛴다.
   return p.name ? `${p.name} · ${title}` : title;
@@ -201,7 +222,7 @@ function busyEntries(p, slotKey) {
   if (found && found.entries) return found.entries;
   if (found) return [{ person: p, title: found.title }];
   const day = Number(slotKey.split('-')[0]);
-  const title = (p.busyDays || []).includes(day) ? (p.busyDayTitle || '다른 일정') : '다른 일정';
+  const title = (p.busyDays || []).includes(day % 7) ? (p.busyDayTitle || '다른 일정') : '다른 일정';
   return [{ person: p, title }];
 }
 
@@ -213,14 +234,42 @@ function blockedSlots() {
 }
 
 /* ── 회피 예산 ─────────────────────────────────────────
-   총량은 항상 1. 많이 칠할수록 각 칸이 묽어진다.
-   그래서 한 사람의 총 영향력은 다른 사람과 같다. 1인 1표.  */
+   사유 없는 기피(picks)의 총량은 항상 1. 많이 칠할수록 전 칸이 똑같이 묽어진다.
+   그래서 한 사람의 총 영향력은 다른 사람과 같다. 1인 1표. */
 function budget(picks) {
-  const weights = picks.map((_, i) => 1 / (i + 1));
-  const total = weights.reduce((a, b) => a + b, 0);
+  if (!picks.length) return {};
+  const w = 1 / picks.length;
   const out = {};
-  picks.forEach((k, i) => (out[k] = weights[i] / total));
+  picks.forEach(k => (out[k] = w));
   return out;
+}
+
+/* 업무 사유(reasons)는 예산 밖 — 칸당 1로, 몇 칸을 칠해도 옅어지지 않는다.
+   아직 캘린더에 못 적힌 사실이 희소한 총량을 지불하는 건 부당하기 때문.
+   대신 익명이 아니다 — 주최자에게 이름과 함께 보인다(applyChoice). */
+function personWeights(p) {
+  const out = budget(p.picks);
+  p.reasons.forEach(k => (out[k] = 1));
+  return out;
+}
+
+/* 어떤 칸에 업무 사유가 하나라도 있는가 — 격자에 빗금(범주 표시)을 얹을 때 쓴다 */
+function reasonSlots(people) {
+  const s = new Set();
+  people.forEach(p => p.reasons.forEach(k => s.add(k)));
+  return s;
+}
+
+/* 업무 사유 칸에 새길 라벨(화면 3) — busy 라벨과 같은 문법.
+   "이름 · 사유", 여러 명이 겹치면 첫 명만 보여주고 나머지는 수로 뭉갠다. */
+function reasonLabelMap(people) {
+  const map = new Map();
+  people.forEach(p => p.reasons.forEach(s => {
+    const note = (p.notes || {})[s];
+    map.set(s, [...(map.get(s) || []), note ? `${p.name} · ${note}` : p.name]);
+  }));
+  return new Map([...map.entries()].map(([s, arr]) =>
+    [s, arr.length > 1 ? `${arr[0]} 외 ${arr.length - 1}명` : arr[0]]));
 }
 
 /* 칠한 칸의 색. 파란(가능과 같은 색조)에서 빨강(정말 피하고 싶음)으로 이어지는 그라데이션.
@@ -238,7 +287,23 @@ function cssRgb(varName) {
 }
 const RAMP_FROM = cssRgb('--avoid-min');
 const RAMP_TO = cssRgb('--avoid-max');
-const ramp = t => `rgb(${RAMP_FROM.map((f, i) => Math.round(f + (RAMP_TO[i] - f) * t)).join(' ')})`;
+const RAMP_DEEP = cssRgb('--avoid-deep');
+const mix = (a, b, t) => `rgb(${a.map((f, i) => Math.round(f + (b[i] - f) * t)).join(' ')})`;
+const ramp = t => mix(RAMP_FROM, RAMP_TO, t);
+
+/* 무게 → 색 눈금. 선형이면 다섯 칸만 칠해도(1/5 vs 1/6…) 인접 단계가 눈에 구별되지 않는다.
+   제곱근으로 낮은 무게 구간을 벌린다 — 합산 수학(1인 1표)은 그대로, 색 눈금만 지각에 맞춘다.
+   단 제곱근만으로는 아무리 칠해도 t가 0에 닿지 않아 분홍에 머문다(√(1/12) = 0.29).
+   그래서 아래끝을 당겨 내려 재정규화한다: FLOOR_N칸을 칠하면 t = 0, 즉 연파랑(최저 경계).
+   위끝(1칸 = 빨강)은 그대로고 초반 간격은 오히려 살짝 넓어진다.
+   바닥이 --avoid-min이라 칠한 칸은 몇 칸을 칠해도 '가능'과 구분된다. */
+const FLOOR_N = 20; // 이만큼 피하면 사실상 기피가 없는 것과 같다 — 색이 최저 경계에 닿는 기준 칸수
+const S0 = Math.sqrt(1 / FLOOR_N);
+const weightColor = w => ramp(Math.max(0, (Math.sqrt(w) - S0) / (1 - S0)));
+
+/* 합산 무게 → 색. 절대 눈금이다 — 1 = 한 사람의 온전한 한 표(빨강).
+   1을 넘는 건 여러 사람이 겹쳤다는 뜻이라 빨강에서 검붉음으로 가라앉는다(3에서 바닥). */
+const avoidColor = v => v <= 1 ? weightColor(v) : mix(RAMP_TO, RAMP_DEEP, Math.min(1, (v - 1) / 2));
 
 /* ── 아바타: 이름에서 결정되는 도형. 무채색이라 격자의 색을 방해하지 않는다 ──
    플러스(+)는 '추가' 버튼으로 읽혀서 도형 목록에 두지 않는다. */
@@ -440,7 +505,7 @@ function groupBusyEntries(people) {
   const add = (k, entry) => map.set(k, [...(map.get(k) || []), entry]);
   people.forEach(p => {
     (p.busy || []).forEach(b => add(b.key, { person: p, title: b.title }));
-    (p.busyDays || []).forEach(d => SLOTS.forEach(t =>
+    busyDayIndexes(p).forEach(d => SLOTS.forEach(t =>
       add(key(d, t), { person: p, title: p.busyDayTitle || '다른 일정' })));
   });
   // title은 전체 목록(클릭 상세용), summary는 칸 안에 넣을 축약형 — 겹치는 사람이 늘어도 칸 폭을 안 넘기려고 첫 명만 보여주고 나머지는 수로 뭉갠다.
@@ -454,9 +519,8 @@ function groupBusyEntries(people) {
   }));
 }
 
-/* 아바타 피커 — 화면 1(전체 일정 미리보기)과 화면 2(현황)가 같은 마크업을 쓴다.
-   markMe면 '나'는 기호 대신 문자로 표시한다 — 이름을 '지훈(나)'로(화면 2). */
-function renderAvatarPicker(containerId, selected, markMe = false) {
+/* 아바타 피커 — 화면 1(전체 일정 미리보기)과 화면 3(합산 현황)이 같은 마크업을 쓴다. */
+function renderAvatarPicker(containerId, selected) {
   const groupBtn = (mode, label, icon, boundary) => `
     <button type="button" class="cs-avatar-btn cs-group${boundary ? ' cs-group-end' : ''}${selected === mode ? ' on' : ''}"
             data-mode="${mode}" aria-pressed="${selected === mode}">
@@ -479,7 +543,7 @@ function renderAvatarPicker(containerId, selected, markMe = false) {
         ${avatar(p)}
         ${p.role === 'required' ? '<span class="cs-req-dot" title="필수 참여자" aria-hidden="true"></span>' : ''}
       </span>
-      ${markMe && p === me ? `<span class="me-name">${p.name}(나)</span>` : `<span>${p.name}</span>`}
+      <span>${p.name}</span>
     </button>`).join('');
   document.getElementById(containerId).innerHTML = allBtn + reqBtn + peopleBtns;
 }
@@ -490,6 +554,12 @@ function resolveViewPerson(selected) {
   return selected === 'ALL' ? { busy: groupBusyEntries(PEOPLE) } :
     selected === 'REQUIRED' ? { busy: groupBusyEntries(required()) } :
     selected;
+}
+
+/* 같은 피커 문법의 목록판 — 합산·라벨·호버가 다루는 사람들 */
+function viewPeople(selected) {
+  return selected === 'ALL' ? PEOPLE :
+    selected === 'REQUIRED' ? required() : [selected];
 }
 
 function renderCombinedSchedule() {
@@ -506,22 +576,24 @@ document.getElementById('cs-avatars').addEventListener('click', e => {
   renderCombinedSchedule();
 });
 
-/* ── 칸 클릭 → 옆에 뜨는 팝업 ──
-   파란(가능) 칸은 애초에 클릭 대상이 아니라 여기 안 걸린다 — 빨간(일정) 칸만 반응한다.
+/* ── 칸 호버 → 옆에 뜨는 팝업 (화면 1·3 공용) ──
+   빨간(일정) 칸에 올리면 그 시간의 일정 목록이 뜨고, 벗어나면 접힌다.
    위로 띄울 자리가 없으면 아래로 뒤집고, 좌우로는 stage 밖을 안 벗어나게 당긴다. */
-let csPopCell = null;
+let popCell = null; // 팝업이 붙어 있는 칸
+let popBox = null;  // 떠 있는 팝업 요소 — 화면 1·3이 각자 하나씩 갖는다
 
 function closeCsPopover() {
-  document.getElementById('cs-popover').classList.remove('on');
-  if (csPopCell) csPopCell.classList.remove('picked');
-  csPopCell = null;
+  if (popBox) popBox.classList.remove('on');
+  if (popCell) popCell.classList.remove('picked');
+  popCell = popBox = null;
 }
 
-function openCsPopover(cell, entries, when) {
-  const pop = document.getElementById('cs-popover');
-  const stage = document.getElementById('cs-stage');
-  if (csPopCell) csPopCell.classList.remove('picked');
-  csPopCell = cell;
+function openCsPopover(stageId, popId, cell, entries, when) {
+  const pop = document.getElementById(popId);
+  const stage = document.getElementById(stageId);
+  closeCsPopover(); // 다른 격자의 팝업이 떠 있으면 먼저 접는다
+  popCell = cell;
+  popBox = pop;
   cell.classList.add('picked');
 
   pop.innerHTML = `<div class="cs-pop-when">${when}</div>` + entries.map(e => `
@@ -555,19 +627,25 @@ function openCsPopover(cell, entries, when) {
   pop.style.setProperty('--arrow-left', `${(cellRect.left - stageRect.left) + cellRect.width / 2 - left}px`);
 }
 
-document.getElementById('grid-combined').addEventListener('click', e => {
-  const cell = e.target.closest('.cell.busy');
-  if (!cell) return;
-  if (csPopCell === cell) { closeCsPopover(); return; }
-  const [d, t] = cell.dataset.slot.split('-').map(Number);
-  const entries = busyEntries(resolveViewPerson(csSelected), key(d, t));
-  openCsPopover(cell, entries, `${DATES[d]}(${DAYS[d]}) ${fmtTime(t)}`);
-});
-
-document.addEventListener('click', e => {
-  const stage = document.getElementById('cs-stage');
-  if (csPopCell && !stage.contains(e.target)) closeCsPopover();
-});
+/* 격자 칸에 호버 팝업을 단다. getEntries(cell)가 그 칸의 목록을 돌려주고,
+   비었으면 조용한 칸이라 접는다 — 호출 시점에 읽으므로 뷰가 바뀌어도 최신 기준. */
+function wirePopover(gridId, stageId, popId, getEntries) {
+  const grid = document.getElementById(gridId);
+  grid.addEventListener('mouseover', e => {
+    const cell = e.target.closest('.cell');
+    if (!cell) { closeCsPopover(); return; }
+    if (popCell === cell) return;
+    const entries = getEntries(cell) || [];
+    if (!entries.length) { closeCsPopover(); return; } // 들려줄 이야기가 없는 칸으로 옮기면 접는다
+    const [d, t] = cell.dataset.slot.split('-').map(Number);
+    openCsPopover(stageId, popId, cell, entries, `${DATES[d]}(${DAYS[d]}) ${fmtTime(t)}`);
+  });
+  grid.addEventListener('mouseleave', closeCsPopover);
+}
+/* 화면 1: 일정(busy) 칸만 말한다 */
+wirePopover('grid-combined', 'cs-stage', 'cs-popover', cell =>
+  cell.classList.contains('busy')
+    ? busyEntries(resolveViewPerson(csSelected), cell.dataset.slot) : null);
 
 document.getElementById('people').addEventListener('click', e => {
   const li = e.target.closest('.person');
@@ -658,13 +736,15 @@ document.getElementById('roster-list').addEventListener('click', e => {
     PEOPLE.push(REMOVED.splice(removedIdx, 1)[0]); // 원래 불가능 시간·역할·팀 그대로 복원
   } else {
     const team = ROSTER.find(r => r.name === name)?.team;
-    PEOPLE.push({ name, role: 'optional', team, picks: [], added: true });
+    PEOPLE.push({ name, role: 'optional', team, picks: [], reasons: [], added: true });
   }
   renderPeople();
   renderRosterList(); // 닫지 않고 남은 후보만 다시 그려 연달아 추가할 수 있게 한다
 });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && !document.getElementById('roster-modal').hidden) closeRosterModal();
+  if (e.key !== 'Escape') return;
+  if (!document.getElementById('roster-modal').hidden) closeRosterModal();
+  if (!document.getElementById('reason-modal').hidden) closeReasonModal();
 });
 
 /* ── 회의 설정: 회의명 ──
@@ -675,8 +755,7 @@ function renderTitleOptions() {
   document.getElementById('title-select').innerHTML =
     TITLE_PRESETS.map(t => `<option value="${t}">${t}</option>`).join('') +
     `<option value="custom">직접 입력…</option>`;
-  document.getElementById('title-select').value = 'custom';
-  document.getElementById('title-custom').hidden = false;
+  document.getElementById('title-select').value = '팀 회의'; // 기본값 — 직접 입력…을 고르면 텍스트 칸이 열린다
 }
 
 function currentTitle() {
@@ -839,26 +918,54 @@ function syncMeta() {
 }
 
 /* ── 화면 2: 지훈이 칠한다 ──
-   그룹 뷰에서도 이 함수로 내 기피만 그린다. 남의 일정(busy) 칸 위에는 얹지 않는다 — 사실이 우선. */
+   내 기피만 그린다. 남의 일정(busy) 칸 위에는 얹지 않는다 — 사실이 우선. */
 function renderInput() {
-  const b = budget(me.picks);
+  const w = personWeights(me); // 색의 단일 출처 — 업무 사유는 1(안 옅어짐), picks는 1/n (화면 3과 같은 수학)
+  const rs = new Set(me.reasons);
+  const notes = me.notes || {};
+  const labelOf = s => rs.has(s) ? (notes[s] || '') : undefined;
   document.querySelectorAll('#grid-input .cell').forEach(c => {
-    c.style.backgroundColor = paintable(c) && b[c.dataset.slot] ? ramp(b[c.dataset.slot]) : '';
+    const ok = paintable(c); // busy 칸의 일정 라벨은 buildGrid 몫 — 건드리지 않는다
+    const reason = ok && rs.has(c.dataset.slot);
+    const wasReason = c.classList.contains('reason');
+    c.classList.toggle('reason', reason);
+    c.style.backgroundColor = ok && w[c.dataset.slot] ? weightColor(w[c.dataset.slot]) : '';
+    // 사유가 없(었)던 칸엔 라벨 일이 없다 — 드래그 중 매 칸을 다시 계산하지 않는다
+    if (!reason && !wasReason) return;
+    markReasonBlock(c, reason, labelOf);
   });
 }
 
+/* 지금 든 브러시 — 특별한 사유가 없어요(pick, 기본) / 업무 사유가 있어요(reason) */
+let brush = 'pick';
+
+function removeReason(slot) {
+  const i = me.reasons.indexOf(slot);
+  if (i !== -1) me.reasons.splice(i, 1);
+  if (me.notes) delete me.notes[slot];
+}
+
+/* pick 브러시 전용 — 업무 사유 칸은 건드리지 않는다(칠하다 실수로 뭉개지지 않게).
+   업무 사유의 등록·수정·삭제는 전부 모달(openReasonModal)이 담당한다. */
 function toggle(el, mode) {
-  const i = me.picks.indexOf(el.dataset.slot);
+  const slot = el.dataset.slot;
+  if (me.reasons.includes(slot)) return;
+  const i = me.picks.indexOf(slot);
   if (mode === 'remove') { if (i !== -1) me.picks.splice(i, 1); }
-  else if (i === -1) me.picks.push(el.dataset.slot);
-  repaintInput(); // 그룹 뷰에서 칠해도 내 기피 색이 그 자리에서 다시 그려진다
+  else if (i === -1) me.picks.push(slot);
+  renderInput();
 }
 
 let dragMode = null;
 const gridInput = document.getElementById('grid-input');
 
 gridInput.addEventListener('pointerdown', e => {
-  if (gridInput.classList.contains('readonly') || !paintable(e.target)) return;
+  if (!paintable(e.target)) return;
+  if (brush === 'reason') {
+    openReasonModal(e.target); // 빈 칸이면 등록, 이미 등록된 블록이면 수정 모드로 연다
+    return;
+  }
+  if (me.reasons.includes(e.target.dataset.slot)) return; // pick 브러시는 업무 사유 칸에 반응하지 않는다
   dragMode = me.picks.includes(e.target.dataset.slot) ? 'remove' : 'add';
   toggle(e.target, dragMode);
 });
@@ -867,50 +974,287 @@ gridInput.addEventListener('pointerover', e => {
 });
 document.addEventListener('pointerup', () => (dragMode = null));
 
-/* ── 화면 2: 현황 피커 · 기본값 · 초기화 ──
-   격자는 하나다. 피커로 보는 대상을 바꾸고, '나'와 그룹 뷰(전체·필수)에서 칠할 수 있다.
-   남의 기피는 어느 뷰에서도 안 보인다(비밀투표) — 서로의 의견이 보이면 눈치·동조가 생기고,
-   독립적으로 표명된 의견이어야 같은 무게 합산이 성립한다. 남의 개인 뷰는 읽기 전용 + 일정만.
-   합산과 개인별 기피는 주최자의 화면 3에서만 보인다. */
-let p2Selected = 'ALL';
+/* ── 화면 2: 업무 사유 모달 ──
+   업무 사유는 총량 밖(안 옅어짐)이라 무게가 크다 — 그만큼 사유와 시간을 입력해야 하고,
+   주최자에게 이름·사유가 함께 전달된다(applyChoice). 드래그 대신 시간 범위로 여러 칸을 받는다. */
+/* 사유도 회의명과 같은 콤보 — 흔한 사유는 고르고, 긴 꼬리는 직접 입력으로 받는다.
+   '예정'류 표현은 쓰지 않는다 — 아직 캘린더에 없는(잡힐 수도 있는) 일이라는 뉘앙스가 죽는다. */
+const REASON_PRESETS = ['외근 가능성', '미팅 준비', '마감 업무'];
 
-/* 타인·그룹 뷰 색: 개인은 자기 예산 그대로, 그룹은 상대 지형 (화면 2 현황 · 화면 3 인원별 현황 공용) */
+function renderReasonOptions() {
+  document.getElementById('reason-select').innerHTML =
+    REASON_PRESETS.map(t => `<option value="${t}">${t}</option>`).join('') +
+    `<option value="custom">직접 입력…</option>`;
+}
+
+/* 시작·종료는 날짜+시간이다 — 외근처럼 하루를 넘는 사유도 한 번에 받는다.
+   날짜 후보는 후보 기간의 평일만 — 격자에 없는 날짜의 사유는 이 회의에서 의미가 없다. */
+function fillDaySelect(id, selected) {
+  const el = document.getElementById(id);
+  el.innerHTML = DAYS.map((_, d) => WEEKEND[d] ? '' :
+    `<option value="${d}">${DATES[d]}(${DAYS[d]})</option>`).join('');
+  el.value = String(selected);
+}
+
+/* 매주 모드의 요일 셀렉트 — 첫 주의 평일들로 목록을 만든다.
+   반복은 7일 주기라 어느 주의 칸이든 d%7이 같은 요일을 가리킨다. */
+function fillWeekSelect(id, selected) {
+  const el = document.getElementById(id);
+  const opts = [];
+  for (let d = 0; d < Math.min(7, DAYS.length); d++) {
+    if (WEEKEND[d]) continue;
+    opts.push(`<option value="${d}">매주 ${DAYS[d]}요일</option>`);
+  }
+  el.innerHTML = opts.join('');
+  el.value = String(selected % 7);
+}
+
+function fillTimeSelect(id, from, selected, start) {
+  const el = document.getElementById(id);
+  const times = [];
+  for (let t = from; t <= DAY_END - (start ? SLOT_MIN : 0); t += SLOT_MIN) {
+    if (start && isLunch(t)) continue; // 점심에 시작할 수 없다
+    if (!start && isLunch(t - SLOT_MIN)) continue; // 점심 한가운데서 끝나는 건 12:00 종료와 같은 말
+    times.push(t);
+  }
+  el.innerHTML = times.map(t => `<option value="${t}">${fmtTime(t)}</option>`).join('');
+  el.value = String(selected);
+}
+
+/* 종료가 시작보다 빠르면 시작 30분 뒤로 끌어온다 — 고르다 꼬이는 걸 그 자리에서 푼다 */
+function syncReasonEnd() {
+  const sd = Number(document.getElementById('reason-start-day').value);
+  const st = Number(document.getElementById('reason-start').value);
+  const edEl = document.getElementById('reason-end-day');
+  const etEl = document.getElementById('reason-end');
+  if (Number(edEl.value) < sd || (Number(edEl.value) === sd && Number(etEl.value) <= st)) {
+    edEl.value = String(sd);
+    etEl.value = String(Math.min(st + SLOT_MIN, DAY_END));
+  }
+}
+
+let editRun = null; // 수정 중인 블록 — null이면 신규 등록
+let reasonMode = 'once'; // 등록 의도 — 이번만(날짜 문법) | 매주(요일 문법)
+
+/* 토글에 맞춰 폼 문법을 통째로 바꾼다 — 매주 모드엔 날짜가 화면에 아예 없어야
+   "특정 날짜가 매주 반복된다"는 어긋난 문장이 안 생긴다 */
+function setReasonMode(mode) {
+  reasonMode = mode;
+  document.querySelectorAll('#reason-mode button').forEach(b =>
+    b.classList.toggle('on', b.dataset.mode === mode));
+  document.querySelectorAll('#reason-modal .ft-row[data-mode]').forEach(r =>
+    r.hidden = r.dataset.mode !== mode);
+}
+
+document.querySelectorAll('#reason-mode button').forEach(btn =>
+  btn.addEventListener('click', () => setReasonMode(btn.dataset.mode)));
+
+/* 클릭한 칸이 속한 '연결된 블록' — 같은 요일에서 같은 사유로 이어진 칸 묶음.
+   점심으로 끊긴 구간은 별개 블록이다(화면에 보이는 덩어리 그대로). */
+function reasonRunAt(slot) {
+  const [d, t] = slot.split('-').map(Number);
+  const note = (me.notes || {})[slot];
+  const same = tt => me.reasons.includes(key(d, tt)) && (me.notes || {})[key(d, tt)] === note;
+  let from = t, to = t;
+  while (same(from - SLOT_MIN)) from -= SLOT_MIN;
+  while (same(to + SLOT_MIN)) to += SLOT_MIN;
+  const slots = [];
+  for (let tt = from; tt <= to; tt += SLOT_MIN) slots.push(key(d, tt));
+  return { from, to, note, slots };
+}
+
+/* 클릭한 블록이 '매주 패턴'인가 — 기간 안 같은 요일 전부에 같은 시간·같은 사유의
+   블록이 있으면 그렇다. 그때는 모달이 매주 탭으로 열리고, 수정·삭제가 패턴 전체를 다룬다. */
+function weeklyRunOf(run, d) {
+  const days = weeklyIndexes(d);
+  if (days.length < 2) return null; // 기간에 그 요일이 한 번뿐이면 '매주'가 아니다
+  const slots = [];
+  for (const dd of days) {
+    if (dd === d) { slots.push(...run.slots); continue; }
+    const s = key(dd, run.from);
+    if (!me.reasons.includes(s) || (me.notes || {})[s] !== run.note) return null;
+    const r = reasonRunAt(s);
+    if (r.from !== run.from || r.to !== run.to) return null;
+    slots.push(...r.slots);
+  }
+  return { ...run, slots, weekly: true };
+}
+
+function openReasonModal(cell) {
+  const slot = cell.dataset.slot;
+  const [d, t] = slot.split('-').map(Number);
+  editRun = me.reasons.includes(slot) ? reasonRunAt(slot) : null;
+  if (editRun) editRun = weeklyRunOf(editRun, d) || editRun;
+
+  fillDaySelect('reason-start-day', d);
+  fillDaySelect('reason-end-day', d); // 기본값은 고른 칸의 그 날
+  fillTimeSelect('reason-start', DAY_START, editRun ? editRun.from : t, true);
+  fillTimeSelect('reason-end', DAY_START + SLOT_MIN, (editRun ? editRun.to : t) + SLOT_MIN, false);
+  fillWeekSelect('reason-wk-day', d);
+  fillTimeSelect('reason-wk-start', DAY_START, editRun ? editRun.from : t, true);
+  fillTimeSelect('reason-wk-end', DAY_START + SLOT_MIN, (editRun ? editRun.to : t) + SLOT_MIN, false);
+  setReasonMode(editRun && editRun.weekly ? 'weekly' : 'once');
+
+  /* 수정이면 블록의 사유를 프리필 — 프리셋에 있으면 셀렉트로, 아니면 직접 입력 칸으로 */
+  const preset = editRun && REASON_PRESETS.includes(editRun.note);
+  document.getElementById('reason-select').value =
+    editRun ? (preset ? editRun.note : 'custom') : REASON_PRESETS[0];
+  document.getElementById('reason-text').value = editRun && !preset ? (editRun.note || '') : '';
+  document.getElementById('reason-text').hidden = !(editRun && !preset);
+
+  /* 수정도 신규와 같은 포맷 — 차이는 삭제 버튼 하나뿐(절반 폭) */
+  document.getElementById('reason-delete').hidden = !editRun;
+  document.getElementById('reason-error').textContent = '';
+  document.getElementById('reason-modal').hidden = false;
+  document.getElementById('reason-select').focus();
+}
+
+function closeReasonModal() {
+  document.getElementById('reason-modal').hidden = true;
+  editRun = null;
+}
+
+document.getElementById('reason-delete').addEventListener('click', () => {
+  if (editRun) editRun.slots.forEach(removeReason);
+  renderInput();
+  closeReasonModal();
+});
+
+document.getElementById('reason-start-day').addEventListener('change', syncReasonEnd);
+document.getElementById('reason-start').addEventListener('change', syncReasonEnd);
+
+/* 매주 모드에도 같은 규칙 — 종료가 시작에 밀리면 30분 뒤로 끌어온다 */
+document.getElementById('reason-wk-start').addEventListener('change', () => {
+  const st = Number(document.getElementById('reason-wk-start').value);
+  const etEl = document.getElementById('reason-wk-end');
+  if (Number(etEl.value) <= st) etEl.value = String(Math.min(st + SLOT_MIN, DAY_END));
+});
+
+document.getElementById('reason-select').addEventListener('change', () => {
+  const custom = document.getElementById('reason-select').value === 'custom';
+  const input = document.getElementById('reason-text');
+  input.hidden = !custom;
+  if (custom) input.focus();
+});
+
+document.getElementById('reason-confirm').addEventListener('click', () => {
+  const sel = document.getElementById('reason-select');
+  const text = sel.value === 'custom'
+    ? document.getElementById('reason-text').value.trim()
+    : sel.value;
+  if (!text) {
+    document.getElementById('reason-error').textContent = '사유를 입력해주세요.';
+    return;
+  }
+  /* 모드별로 칠할 (날짜, 시작, 끝) 구간 목록을 만든다 */
+  const segs = [];
+  if (reasonMode === 'weekly') {
+    const w = Number(document.getElementById('reason-wk-day').value);
+    const st = Number(document.getElementById('reason-wk-start').value);
+    const et = Number(document.getElementById('reason-wk-end').value);
+    if (et <= st) {
+      document.getElementById('reason-error').textContent = '종료 시간은 시작 시간보다 늦어야 합니다.';
+      return;
+    }
+    /* 후보 기간 안에서 7일 간격의 같은 요일 전부 —
+       기간이 한 주뿐이면 한 번과 같다. 격자는 이 회의의 후보 기간만 아니까. */
+    weeklyIndexes(w).forEach(dd => segs.push({ d: dd, from: st, to: et }));
+  } else {
+    const sd = Number(document.getElementById('reason-start-day').value);
+    const ed = Number(document.getElementById('reason-end-day').value);
+    const st = Number(document.getElementById('reason-start').value);
+    const et = Number(document.getElementById('reason-end').value);
+    if (ed < sd || (ed === sd && et <= st)) {
+      document.getElementById('reason-error').textContent = '종료 일시는 시작 일시보다 늦어야 합니다.';
+      return;
+    }
+    /* 하루를 넘는 범위는 날짜별로 자른다 — 첫날은 시작 시각부터, 마지막 날은 종료 시각까지, 그 사이는 종일 */
+    for (let dd = sd; dd <= ed && dd < DAYS.length; dd++)
+      segs.push({ d: dd, from: dd === sd ? st : DAY_START, to: dd === ed ? et : DAY_END });
+  }
+  if (editRun) editRun.slots.forEach(removeReason); // 수정: 원래 블록을 걷어내고 새 값으로 다시 칠한다
+  if (!me.notes) me.notes = {};
+  segs.forEach(({ d: dd, from, to }) => {
+    for (let t = from; t < to; t += SLOT_MIN) {
+      const slot = key(dd, t);
+      const el = gridInput.querySelector(`.cell[data-slot="${slot}"]`);
+      if (!el || !paintable(el)) continue; // 주말·점심·캘린더 일정 칸은 못 칠한다 — 격자와 같은 규칙
+      if (!me.reasons.includes(slot)) me.reasons.push(slot);
+      const j = me.picks.indexOf(slot);
+      if (j !== -1) me.picks.splice(j, 1);
+      me.notes[slot] = text;
+    }
+  });
+  renderInput();
+  closeReasonModal();
+});
+document.getElementById('reason-close').addEventListener('click', closeReasonModal);
+document.getElementById('reason-modal').addEventListener('click', e => {
+  if (e.target.id === 'reason-modal') closeReasonModal(); // 바깥(오버레이) 클릭 시 닫기
+});
+
+/* ── 화면 2: 기본값 · 지우기 ──
+   격자는 '나'의 것 하나뿐이다. 남의 기피는 여기서 안 보인다(비밀투표) — 서로의 의견이
+   보이면 눈치·동조가 생기고, 독립적으로 표명된 의견이어야 같은 무게 합산이 성립한다.
+   합산과 개인별 기피는 주최자의 화면 3에서만 보인다. */
+
+/* 화면 3의 개인·그룹 뷰 색 — 절대 눈금(avoidColor). 1 = 한 사람의 온전한 한 표라서
+   개인 뷰든 그룹 뷰든 같은 색이 같은 무게를 뜻한다. 업무 사유 칸에는 빗금을 얹는다. */
+/* 사유 라벨을 빗금 위에 판(.lb)으로 얹는다 — 사유는 사용자 입력이라 innerHTML 대신 DOM 생성 */
+function setReasonLabel(c, text) {
+  c.textContent = '';
+  if (!text) return;
+  const i = document.createElement('i');
+  i.className = 'lb';
+  i.textContent = text;
+  c.appendChild(i);
+}
+
+/* 사유 블록의 라벨·경계 — 라벨은 블록이 시작하는 칸에만 (연속 칸엔 반복하지 않는다, busy 라벨과 같은 원칙).
+   labelOf(slot)가 undefined면 사유 칸이 아니다. 화면 2·3의 모든 렌더러가 이 한 규칙을 쓴다. */
+function markReasonBlock(c, reason, labelOf) {
+  const [d, t] = c.dataset.slot.split('-').map(Number);
+  const label = labelOf(c.dataset.slot);
+  const cont = labelOf(key(d, t - SLOT_MIN)) === label;
+  const contNext = labelOf(key(d, t + SLOT_MIN)) === label;
+  setReasonLabel(c, reason && !cont ? (label || '') : '');
+  c.classList.toggle('r-start', reason && !cont);   // 블록의 첫/끝 칸 — 다음 마커 후보가 쓸 훅
+  c.classList.toggle('r-end', reason && !contNext);
+}
+
 function paintStatusGrid(gridId, selected) {
-  const group = typeof selected === 'string'; // 개인 선택은 항상 인물 객체
-  const sum = sumBudgets(selected === 'ALL' ? PEOPLE :
-    selected === 'REQUIRED' ? required() : [selected]);
-  const max = group ? Math.max(...Object.values(sum), 0.001) : 1;
+  const people = viewPeople(selected);
+  const sum = sumBudgets(people);
+  const rs = reasonSlots(people);
+  const labels = reasonLabelMap(people);
+  const labelOf = s => labels.get(s);
   document.querySelectorAll(`#${gridId} .cell`).forEach(c => {
     const v = paintable(c) && sum[c.dataset.slot];
-    c.style.backgroundColor = v ? ramp(v / max) : '';
+    c.style.backgroundColor = v ? avoidColor(v) : '';
+    const reason = !!(paintable(c) && rs.has(c.dataset.slot));
+    c.classList.toggle('reason', reason);
+    if (!paintable(c)) return; // busy 칸의 일정 라벨은 buildGrid 몫 — 건드리지 않는다
+    markReasonBlock(c, reason, labelOf);
   });
 }
 
 function renderInputView() {
-  renderAvatarPicker('in-avatars', p2Selected, true);
-  buildGrid(gridInput, 'in', resolveViewPerson(p2Selected));
-  const otherPerson = typeof p2Selected !== 'string' && p2Selected !== me;
-  gridInput.classList.toggle('readonly', otherPerson);
-  document.getElementById('in-note').hidden = p2Selected === me; // 남의 기피를 기대할 수 있는 뷰에서만 안내
-  repaintInput();
+  buildGrid(gridInput, 'in', me);
+  renderInput();
 }
 
-/* 지금 보고 있는 뷰에 맞는 색으로 다시 칠한다 — 화면 2는 어느 뷰에서든 내 기피만 그린다.
-   남의 기피는 개인 뷰든 그룹 뷰든 안 보인다(비밀투표) — 합산은 주최자의 화면 3에서만. */
-function repaintInput() {
-  if (typeof p2Selected === 'string' || p2Selected === me) renderInput();
-}
+/* 브러시 전환 — 격자를 다시 그릴 필요는 없다. 다음 칠부터 종류가 바뀔 뿐이다.
+   격자에 브러시 클래스를 달아 CSS가 커서를 맞추게 한다(업무 사유 칸은 pick 브러시에 무반응). */
+document.querySelectorAll('.brush').forEach(b => b.addEventListener('click', () => {
+  brush = b.dataset.brush;
+  gridInput.classList.toggle('brush-reason', brush === 'reason');
+  document.querySelectorAll('.brush').forEach(x => {
+    x.classList.toggle('on', x === b);
+    x.setAttribute('aria-pressed', String(x === b));
+  });
+}));
 
-document.getElementById('in-avatars').addEventListener('click', e => {
-  const btn = e.target.closest('.cs-avatar-btn');
-  if (!btn) return;
-  p2Selected = btn.dataset.mode || PEOPLE[Number(btn.dataset.i)];
-  renderInputView();
-});
-
-/* 기본값: 매번 같은 기피를 다시 칠하지 않도록 저장한다. 새로고침에도 유지(localStorage). */
-const AVOID_DEFAULT_KEY = 'avoid-default';
-
+/* 버튼이 자기 완료를 잠깐 말하고 원래 라벨로 돌아온다 — 화면 3 '캘린더 새로고침'도 쓴다 */
 function flashBtn(btn, msg) {
   const orig = btn.textContent;
   btn.textContent = msg;
@@ -918,59 +1262,90 @@ function flashBtn(btn, msg) {
   setTimeout(() => { btn.textContent = orig; btn.disabled = false; }, 1200);
 }
 
-document.getElementById('load-default').addEventListener('click', e => {
+/* 기본값: 매번 같은 기피를 다시 칠하지 않도록 저장한다. 새로고침에도 유지(localStorage). */
+/* v2: 키를 올려 예전 테스트로 남은 저장분을 무시하고 '매주 금요일 외근 가능성' 시드가 다시 깔리게 한다 */
+const AVOID_DEFAULT_KEY = 'avoid-default-v2';
+
+/* 지훈의 반복 기피 — 매주 금요일은 외근이 잡힐 수 있다.
+   첫 실행의 저장소에 심어 '불러오기'가 빈손이 아니게 한다(반복 기피가 곧 기본값의 존재 이유).
+   사용자가 직접 저장한 값이 있으면 덮지 않는다. init에서 rebuildDays 뒤에 불러야 DAYS가 차 있다. */
+function seedAvoidDefault() {
+  if (localStorage.getItem(AVOID_DEFAULT_KEY)) return;
+  const fri = DAYS.indexOf('금'); // 기간 안 첫 금요일 열 — 매주 반복이니 weeklyIndexes로 편다
+  const fris = fri === -1 ? [] : weeklyIndexes(fri);
+  if (!fris.length) return;
+  const reasons = fris.flatMap(fd => SLOTS.filter(t => !isLunch(t)).map(t => key(fd, t)));
+  const notes = Object.fromEntries(reasons.map(s => [s, '외근 가능성']));
+  localStorage.setItem(AVOID_DEFAULT_KEY, JSON.stringify({ picks: [], reasons, notes }));
+}
+
+/* 저장된 기본값을 '나'에게 입힌다 — 지금 격자에서 칠할 수 있는 칸만 살린다. 성공 여부를 돌려준다. */
+function applySavedDefault() {
   const saved = JSON.parse(localStorage.getItem(AVOID_DEFAULT_KEY) || 'null');
-  if (!saved || !saved.length) { flashBtn(e.target, '저장된 값 없음'); return; }
+  if (!saved || (!(saved.picks || []).length && !(saved.reasons || []).length)) return false;
   const busy = busySlots(me);
-  me.picks = saved.filter(s => {
+  const usable = s => {
     const [d, t] = s.split('-').map(Number);
     return d < DAYS.length && !isLunch(t) && !busy.has(s); // 지금 격자에서 칠할 수 있는 칸만
+  };
+  me.reasons = (saved.reasons || []).filter(usable);
+  me.picks = (saved.picks || []).filter(s => usable(s) && !me.reasons.includes(s)); // 겹치면 업무 사유 우선
+  me.notes = {};
+  me.reasons.forEach(s => {
+    const n = (saved.notes || {})[s];
+    if (n) me.notes[s] = n; // 사유 텍스트도 살아남은 칸의 것만 복원한다
   });
-  p2Selected = me;
+  return true;
+}
+
+/* 화면 2 첫 진입 때 기본값을 자동으로 입힌다 — 반복 기피를 매번 다시 칠하지 않는 게
+   이 기능의 존재 이유라, 버튼을 눌러야만 작동하면 반쪽이다. 이후엔 사용자가 그린 상태를 존중한다. */
+let defaultApplied = false;
+
+document.getElementById('load-default').addEventListener('click', e => {
+  if (!applySavedDefault()) {
+    flashBtn(e.target, '저장된 값 없음');
+    return;
+  }
   renderInputView();
   flashBtn(e.target, '불러옴');
 });
 
 document.getElementById('save-default').addEventListener('click', e => {
-  localStorage.setItem(AVOID_DEFAULT_KEY, JSON.stringify(me.picks));
+  localStorage.setItem(AVOID_DEFAULT_KEY,
+    JSON.stringify({ picks: me.picks, reasons: me.reasons, notes: me.notes || {} }));
   flashBtn(e.target, '저장됨');
 });
 
 document.getElementById('clear-picks').addEventListener('click', () => {
   me.picks = [];
-  p2Selected = me;
+  me.reasons = [];
+  me.notes = {};
   renderInputView();
 });
 
-/* ── 합산: 여러 사람의 회피 예산을 슬롯별로 더한다 (화면 2 현황 뷰 · 화면 3 공용) ── */
+/* ── 합산: 여러 사람의 회피 무게(선호 예산 + 업무 사유)를 슬롯별로 더한다 (화면 3 공용) ── */
 function sumBudgets(people) {
   const sum = {};
   people.forEach(p => {
-    const b = budget(p.picks || []);
+    const b = personWeights(p);
     for (const k in b) sum[k] = (sum[k] || 0) + b[k];
   });
   return sum;
 }
 
 /* ── 화면 3: 합산 · 격자에서 직접 선택 · 인원별 현황 ── */
-function totals() {
-  return sumBudgets(required());
-}
-
 let chosen = null;                 // 선택된 시간 { d, t, slots }
 let sent = false;                  // 알림을 보냈는가 — 선택이 바뀌어야 풀린다 (뷰 전환으로는 안 풀림)
 let p3Selected = 'ALL';            // 기본은 전체 현황 — 그룹 뷰(전체·필수)에서 바로 고를 수 있다
-let aggSum = {}, aggMax = 1;       // 마지막 합산 — 선택이 바뀔 때마다 색을 되돌리는 데 쓴다
 let aggStarts = new Map();         // 시작 슬롯 → 후보. 여기 있는 칸만 클릭에 반응한다
 
-/* 합산·후보를 다시 계산한다. 격자를 그리지는 않는다 — 그건 renderAggView 몫 */
+/* 후보를 다시 계산한다. 격자를 그리지는 않는다 — 그건 renderAggView 몫 */
 function computeAgg() {
-  aggSum = totals();
-  aggMax = Math.max(...Object.values(aggSum), 0.001);
   const blocked = blockedSlots();
 
   document.getElementById('agg-sub').textContent =
-    `필수 참여자 ${required().length}명의 의견이 같은 무게로 합산되었습니다`;
+    `참여자 ${PEOPLE.length}명의 의견이 합산되었습니다`;
 
   /* 시작 가능한 칸: 회의 길이(30분 단위)만큼 연속으로 비어 있어야 한다. 점심을 가로지르면 제외한다. */
   const need = Math.ceil(DURATION / SLOT_MIN);
@@ -994,6 +1369,7 @@ function computeAgg() {
    전체 뷰는 선택 참여자의 일정까지 보이는 채로, 필수 뷰는 결정 기준만 남긴 채로 고른다.
    개인 뷰는 현황 확인용이라 선택을 얹지 않는다. */
 function renderAggView() {
+  closeCsPopover(); // 격자를 새로 지으므로 이전 칸에 붙은 팝업은 접는다
   renderAvatarPicker('agg-avatars', p3Selected);
   const grid = document.getElementById('grid-agg');
   document.getElementById('agg-legend-busy').textContent =
@@ -1017,17 +1393,8 @@ function renderAggView() {
     const [d, t] = slot.split('-').map(Number);
     c.textContent = busy && !blocked.has(key(d, t - SLOT_MIN)) ? (titles.get(slot) || '다른 일정') : '';
   });
-  paintAgg();
+  paintStatusGrid('grid-agg', 'REQUIRED'); // 필수 뷰의 합산 색도 같은 붓 — 전체 뷰와 한 함수
   overlayChoice(grid);
-}
-
-/* 필수 뷰의 합산 색 — 전체 뷰의 색은 paintStatusGrid 몫이다.
-   renderAggView가 격자를 새로 지은 직후에만 불려서 이전 선택·라벨을 지울 필요가 없다. */
-function paintAgg() {
-  document.querySelectorAll('#grid-agg .cell').forEach(c => {
-    const v = !c.classList.contains('busy') && aggSum[c.dataset.slot];
-    c.style.backgroundColor = v ? ramp(v / aggMax) : '';
-  });
 }
 
 /* 그룹 뷰 공통 — 후보 칸을 클릭 대상으로 표시하고, 선택된 시간을 진파랑 + 회의명으로 얹는다 */
@@ -1059,6 +1426,7 @@ function applyChoice(c) {
     when.textContent = '테이블에서 원하는 일시를 선택해주세요';
     when.classList.add('placeholder');
     att.textContent = '—';
+    document.getElementById('pick-reason-row').hidden = true;
     document.getElementById('pick-avoid-row').hidden = true;
     return;
   }
@@ -1075,9 +1443,19 @@ function applyChoice(c) {
   att.textContent =
     `필수 참여자 ${required().length}명 전원 참석 가능 · 선택 참여자 ${free.length}/${optional().length}명 참석 가능`;
 
-  /* 주최자에게는 이름까지 — 이 시간을 피하고 싶다고 표시한 필수 참여자.
-     참여자끼리는 익명(화면 2)이지만, 결정하는 사람은 선택의 대가를 알아야 한다. */
-  const avoiders = required().filter(p => (p.picks || []).some(s => chosen.slots.includes(s)));
+  /* 주최자에게는 이름까지 — 이 시간을 피하고 싶다고 표시한 참여자(필수·선택 모두).
+     참여자끼리는 익명(화면 2)이지만, 결정하는 사람은 선택의 대가를 알아야 한다.
+     업무 사유는 따로 줄을 세우고 입력한 사유도 함께 보여준다 — 같은 기피가 아니라
+     더 무거운 기피다. 겹치면 업무 사유로 친다. */
+  const withReason = PEOPLE.filter(p => p.reasons.some(s => chosen.slots.includes(s)));
+  const avoiders = PEOPLE.filter(p =>
+    !withReason.includes(p) && p.picks.some(s => chosen.slots.includes(s)));
+  document.getElementById('pick-reason-row').hidden = !withReason.length;
+  document.getElementById('pick-reason').textContent = withReason.map(p => {
+    const slot = p.reasons.find(s => chosen.slots.includes(s));
+    const note = (p.notes || {})[slot];
+    return note ? `${p.name} — ${note}` : p.name;
+  }).join(', ');
   document.getElementById('pick-avoid-row').hidden = !avoiders.length;
   document.getElementById('pick-avoid').textContent = avoiders.map(p => p.name).join(', ');
 }
@@ -1095,6 +1473,20 @@ document.getElementById('grid-agg').addEventListener('click', e => {
   const cand = aggStarts.get(cell.dataset.slot);
   applyChoice(chosen && chosen.slots[0] === cand.slots[0] ? null : cand); // 같은 칸 다시 누르면 해제
 });
+
+/* 화면 1과 같은 호버 팝업 — 다만 화면 3에서는 일정(busy) 칸만이 아니라 색이 있는
+   모든 칸이 말한다. 기피·업무 사유 칸에 올리면 누가 왜 피하는지 뜬다.
+   하늘색(가능)·선택(진파랑)·점심 칸은 조용히 — 들려줄 이야기가 없다. */
+function aggHoverEntries(cell) {
+  if (cell.classList.contains('lunch') || cell.classList.contains('chosen')) return null;
+  const slot = cell.dataset.slot;
+  if (cell.classList.contains('busy'))
+    return busyEntries(resolveViewPerson(p3Selected), slot);
+  return viewPeople(p3Selected).flatMap(p =>
+    p.reasons.includes(slot) ? [{ person: p, title: (p.notes || {})[slot] || '업무 사유' }] :
+    p.picks.includes(slot) ? [{ person: p, title: '피하고 싶어요' }] : []);
+}
+wirePopover('grid-agg', 'agg-stage', 'agg-popover', aggHoverEntries);
 
 document.getElementById('confirm-send').addEventListener('click', e => {
   if (!chosen || sent) return;
@@ -1127,12 +1519,17 @@ function goto(n) {
   if (n === 2) {
     ensureMe();
     syncMeta(); // 마감일 등 화면 1 값이 바뀌었을 수 있다
-    p2Selected = 'ALL'; // 들어올 때마다 전체 현황부터 — 여기서 바로 칠할 수 있다
+    document.getElementById('s2-title').textContent =
+      `${me.name}님은 ${me.role === 'required' ? '필수' : '선택'} 참여자입니다`;
+    if (!defaultApplied) {
+      applySavedDefault();
+      defaultApplied = true;
+    }
     renderInputView();
   }
   if (n === 3) {
     ensureMe();
-    p3Selected = 'ALL'; // 들어올 때마다 전체 현황부터 — 여기서 바로 고를 수 있다 (화면 2와 같은 규칙)
+    p3Selected = 'ALL'; // 들어올 때마다 전체 현황부터 — 여기서 바로 고를 수 있다
     computeAgg();
     applyChoice(null);
     renderAggView();
@@ -1148,8 +1545,10 @@ document.addEventListener('click', e => {
 normalizeFixtures();
 setDefaultDates();
 rebuildDays();
+seedAvoidDefault();
 renderTitleOptions();
 renderDurationOptions();
+renderReasonOptions();
 syncMeta();
 renderPeople();
 buildGrid(document.getElementById('grid-agg'), 'ag');
