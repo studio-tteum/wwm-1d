@@ -19,7 +19,6 @@
       <button type="button" data-goto="1" class="on" aria-current="step">1 · 주최자 <b>회의 만들기</b></button>
       <button type="button" data-goto="2">2 · 필수 참여자 <b>기피 칠하기</b></button>
       <button type="button" data-goto="3">3 · 주최자 <b>시간 정하기</b></button>
-      <button type="button" data-goto="4">4 · 선택 참여자 <b>참여 여부</b></button>
     </div>
   </nav>
 
@@ -31,7 +30,7 @@
         <h1 id="s1-title">회의를 준비합시다</h1>
       </header>
 
-      <h2 class="sec-title">어떤 회의인가요?</h2>
+      <h2 class="sec-title" id="sec-what">어떤 회의인가요?</h2>
       <div class="field-table">
         <div class="ft-row">
           <div class="ft-label">회의명</div>
@@ -54,7 +53,7 @@
         </div>
       </div>
 
-      <h2 class="sec-title">언제 해야 하나요?</h2>
+      <h2 class="sec-title" id="sec-when">언제 해야 하나요?</h2>
       <div class="field-table">
         <div class="ft-row">
           <div class="ft-label">날짜</div>
@@ -67,11 +66,11 @@
               <div class="date-mode-body" id="body-range">
                 <div class="combo">
                   <input type="date" class="pick" id="start-date">
-                  <span class="meta-sep" aria-hidden="true">–</span>
+                  <span class="range-word">~</span>
                   <input type="date" class="pick" id="end-date">
+                  <span class="range-days">중 1일</span>
                 </div>
                 <p class="field-error" id="range-error" role="status"></p>
-                <p class="note" id="range-note" hidden></p>
               </div>
 
               <label class="radio-opt">
@@ -86,7 +85,7 @@
         </div>
       </div>
 
-      <h2 class="sec-title">언제까지 정할까요?</h2>
+      <h2 class="sec-title" id="sec-due">언제까지 정할까요?</h2>
       <div class="field-table">
         <div class="ft-row">
           <div class="ft-label">의견접수 마감일</div>
@@ -95,11 +94,15 @@
               <input type="date" class="pick" id="due-date">
               <input type="time" class="pick" id="due-time">
             </div>
+            <p class="field-error" id="due-error" role="status"></p>
           </div>
         </div>
       </div>
 
-      <h2 class="sec-title">누가 와야 하나요?</h2>
+      <div class="sec-row">
+        <h2 class="sec-title" id="sec-who">누가 와야 하나요?</h2>
+        <span class="sec-count" id="who-count"></span>
+      </div>
 
       <ul class="people" id="people"></ul>
 
@@ -107,9 +110,60 @@
         <button type="button" class="add-btn" id="add-btn">인원 추가하기</button>
       </div>
 
-      <h2 class="sec-title">아래 일정이 맞나요?</h2>
+      <h2 class="sec-title">아래 사항이 맞나요?</h2>
       <div class="cs-avatars" id="cs-avatars"></div>
-      <div class="grid" id="grid-combined" aria-label="선택한 인원의 일정"></div>
+      <div class="cs-stage" id="cs-stage">
+        <div class="grid" id="grid-combined" aria-label="선택한 인원의 일정"></div>
+        <div class="cs-popover" id="cs-popover" role="status"></div>
+      </div>
+
+      <!-- 발송 직전 최종 확인 — 알림이 의존하는 값 전부(설정 + 참여자)를 버튼 옆에 모은다.
+           각 행의 '수정'은 그 값을 정한 섹션으로 앵커 이동한다. -->
+      <h2 class="sec-title">한 번 더 확인해주세요</h2>
+      <div class="field-table">
+        <div class="ft-row">
+          <div class="ft-label">회의명</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-title"></span>
+            <a class="tool-btn mini" href="#sec-what">수정</a>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">회의 시간</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-duration"></span>
+            <a class="tool-btn mini" href="#sec-what">수정</a>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">날짜 후보</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-dates"></span>
+            <a class="tool-btn mini" href="#sec-when">수정</a>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">의견접수 마감일</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-due"></span>
+            <a class="tool-btn mini" href="#sec-due">수정</a>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">필수 참여자</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-required"></span>
+            <a class="tool-btn mini" href="#sec-who">수정</a>
+          </div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">선택 참여자</div>
+          <div class="ft-value sum-line">
+            <span class="ft-text" id="sum-optional"></span>
+            <a class="tool-btn mini" href="#sec-who">수정</a>
+          </div>
+        </div>
+      </div>
 
       <div class="modal-overlay" id="roster-modal" hidden>
         <div class="modal" role="dialog" aria-modal="true" aria-labelledby="roster-modal-title">
@@ -121,17 +175,50 @@
       </div>
 
       <footer class="foot">
-        <button type="button" class="submit" id="send" data-goto="2">필수 참여자에게 알림 보내기</button>
+        <button type="button" class="submit full" id="send" data-goto="2">필수 참여자에게 알림 보내기</button>
       </footer>
     </section>
 
     <!-- ── 2. 필수 참여자: 기피 칠하기 ⭐ ── -->
     <section class="step" data-step="2">
       <header class="head">
-        <h1>피하고 싶은 시간을 칠해주세요</h1>
-        <p class="sub" id="meet-sub">팀 회의 · 1시간 · 다음 주</p>
-        <p class="note">칠한 내용은 다른 참여자에게 보이지 않습니다.</p>
+        <h1>회의에 참여합시다</h1>
       </header>
+
+      <h2 class="sec-title">회의 일정</h2>
+      <div class="field-table">
+        <div class="ft-row">
+          <div class="ft-label">회의명</div>
+          <div class="ft-value"><span class="ft-text" id="info-title"></span></div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">회의 시간</div>
+          <div class="ft-value"><span class="ft-text" id="info-duration"></span></div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">날짜 후보</div>
+          <div class="ft-value"><span class="ft-text" id="info-dates"></span></div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">의견접수 마감일</div>
+          <div class="ft-value"><span class="ft-text" id="info-due"></span></div>
+        </div>
+      </div>
+
+      <h2 class="sec-title">피하고 싶은 시간을 칠해주세요</h2>
+
+      <div class="cs-avatars" id="in-avatars"></div>
+
+      <!-- 격자를 조작하는 도구는 격자 바로 위에 — 왼쪽은 맥락(캘린더 수정), 오른쪽은 동작 버튼 -->
+      <div class="board-tools">
+        <div class="fix-cal">
+          <span class="fix-cal-q">잘못된 일정이 있나요?</span>
+          <a class="fix-cal-link" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">캘린더 수정하기<span aria-hidden="true"> ↗</span></a>
+        </div>
+        <button type="button" class="tool-btn" id="save-default">기본값 저장하기</button>
+        <button type="button" class="tool-btn" id="load-default">기본값 불러오기</button>
+        <button type="button" class="tool-btn" id="clear-picks">초기화</button>
+      </div>
 
       <div class="board">
         <div class="grid" id="grid-input" aria-label="다음 주 시간표"></div>
@@ -140,10 +227,11 @@
           <li><span class="sw sw-busy"></span>캘린더상 일정 있음</li>
           <li><span class="sw sw-lunch"></span>근무시간 아님</li>
         </ul>
+        <p class="note" id="in-note" hidden>다른 참여자의 기피는 이 화면에 보이지 않습니다. 모든 의견은 같은 무게로 합산되어 주최자의 결정 화면에 나타납니다.</p>
       </div>
 
-      <footer class="foot">
-        <button class="submit" data-goto="3">제출하기</button>
+      <footer class="foot foot-col">
+        <button class="submit full" data-goto="3">제출하기</button>
         <p class="foot-note">칠하지 않아도 회의는 진행됩니다.</p>
       </footer>
     </section>
@@ -151,45 +239,48 @@
     <!-- ── 3. 주최자: 시간 정하기 ── -->
     <section class="step" data-step="3">
       <header class="head">
-        <h1>초록에 가까운 시간을 고르세요</h1>
-        <p class="sub">필수 참여자 4명의 의견이 같은 무게로 합산되었습니다</p>
-        <p class="note">누가 무엇을 칠했는지는 기본적으로 보이지 않습니다.</p>
+        <h1>회의를 결정합시다</h1>
+        <p class="sub" id="agg-sub"></p>
       </header>
+
+      <div class="sec-row">
+        <h2 class="sec-title">일정을 선택해주세요</h2>
+        <div class="sec-actions">
+          <button type="button" class="tool-btn" id="agg-refresh">캘린더 새로고침</button>
+        </div>
+      </div>
+
+      <div class="cs-avatars" id="agg-avatars"></div>
 
       <div class="board">
         <div class="grid" id="grid-agg" aria-label="합산 결과"></div>
         <ul class="legend">
           <li><span class="sw sw-ramp"></span>기피가 쌓인 정도</li>
-          <li><span class="sw sw-busy"></span>필수 참여자 불가 · 후보 제외</li>
+          <li><span class="sw sw-busy"></span><span id="agg-legend-busy">필수 참여자 불가 · 후보 제외</span></li>
           <li><span class="sw sw-lunch"></span>근무시간 아님</li>
         </ul>
+        <p class="note" id="cands-empty" hidden>조건에 맞는 시간이 없습니다. 회의 길이를 줄이거나 참여자 조건을 조정해보세요.</p>
       </div>
 
-      <h2 class="cand-title">추천 시간</h2>
-      <ul class="cands" id="cands"></ul>
-      <p class="note" id="cands-empty" hidden>조건에 맞는 시간이 없습니다. 회의 길이를 줄이거나 참여자 조건을 조정해보세요.</p>
+      <h2 class="sec-title">아래 일정이 맞을까요?</h2>
+      <div class="field-table">
+        <div class="ft-row">
+          <div class="ft-label">회의 일시</div>
+          <div class="ft-value"><span class="ft-text placeholder" id="pick-when">테이블에서 원하는 일시를 선택해주세요</span></div>
+        </div>
+        <div class="ft-row">
+          <div class="ft-label">참석자 현황</div>
+          <div class="ft-value"><span class="ft-text" id="pick-att">—</span></div>
+        </div>
+        <div class="ft-row" id="pick-avoid-row" hidden>
+          <div class="ft-label">피하고 싶어한 사람</div>
+          <div class="ft-value"><span class="ft-text" id="pick-avoid"></span></div>
+        </div>
+      </div>
 
       <footer class="foot">
-        <button class="submit" data-goto="4">이 시간으로 확정</button>
+        <button class="submit full" id="confirm-send" disabled>확정하고 모든 참여자에게 알림 보내기</button>
       </footer>
-    </section>
-
-    <!-- ── 4. 선택 참여자: 알림 ── -->
-    <section class="step" data-step="4">
-      <header class="head">
-        <h1 id="confirmed">회의가 확정되었습니다</h1>
-        <p class="sub">참여 여부만 알려주시면 됩니다</p>
-      </header>
-
-      <div class="rsvp">
-        <button class="rsvp-btn">참여</button>
-        <button class="rsvp-btn ghost">불참</button>
-      </div>
-
-      <p class="closing">
-        당신에게는 <strong>아무것도 묻지 않았습니다.</strong><br>
-        올 수 있는지는 캘린더가 이미 알고 있었습니다.
-      </p>
     </section>
 
   </main>
