@@ -371,6 +371,13 @@ select.pick {
 /* 필수 참여자는 칸 색을 조금만 진하게 둬 목록에서 눈에 먼저 들어오게 한다 */
 .person.required .prow { background: var(--surface); }
 
+/* 화면 3 제출 현황 표 — 같은 행 문법의 읽기 전용판. 호버 반응을 꺼 상호작용으로 안 읽히게 한다 */
+.prow.ro { cursor: default; }
+.person:not(.required) .prow.ro:hover { background: transparent; }
+.role-text { font-size: 12px; color: var(--ink-sub); flex: none; }
+.sub-badge { font-size: 12px; font-weight: 600; flex: none; }
+.sub-badge.wait { font-weight: 400; color: var(--ink-faint); }
+
 /* ── 1. 전체 참여자 일정 ──
    프로필을 한 줄로 늘어놓고, 고른 사람의 일정만 화면 2와 같은 격자(.grid)로 보여준다.
    여기도 '불가능'만 나온다. */

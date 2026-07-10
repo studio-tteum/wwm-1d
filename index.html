@@ -318,8 +318,12 @@
 
       <h2 class="sec-title">아래 인원이 의견을 제출했어요</h2>
       <div class="cs-avatars" id="agg-avatars"></div>
+      <!-- 제출 현황 표 — 화면 1 인원 목록과 같은 행 문법, 읽기 전용 (renderAggPeople이 채운다) -->
+      <ul class="people" id="agg-people"></ul>
 
       <h2 class="sec-title">일정을 선택해주세요</h2>
+      <!-- 개인 뷰는 현황 확인용 — 선택이 안 되는 이유를 침묵하지 않고 말한다 (renderAggView가 채운다) -->
+      <p class="note" id="agg-view-note" hidden></p>
 
       <!-- 격자를 조작하는 도구는 격자 바로 위 회색 트레이에 — 화면 2와 같은 시각 언어 -->
       <div class="board-tools">
