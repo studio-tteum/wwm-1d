@@ -1495,7 +1495,8 @@ function applyChoice(c) {
      우선순위: 캘린더 불가 > 업무 사유 > 피하고 싶음 > 참석 가능. (필수는 후보 정의상 불가 없음)
      사유는 사용자 입력이라 innerHTML 대신 DOM으로 만든다. */
   const personStatus = p => {
-    if (chosen.slots.some(s => busySlots(p).has(s))) return { text: '참석 불가', avoid: true };
+    const busySlot = chosen.slots.find(s => busySlots(p).has(s));
+    if (busySlot) return { text: `참석 불가(${busyEntries(p, busySlot)[0].title})`, avoid: true };
     const slot = p.reasons.find(s => chosen.slots.includes(s));
     if (slot) return { text: (p.notes || {})[slot] || '업무 사유 있음', avoid: true };
     if (p.picks.some(s => chosen.slots.includes(s))) return { text: '피하고 싶음', avoid: false };
