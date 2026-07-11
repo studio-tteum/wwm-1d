@@ -374,9 +374,22 @@ select.pick {
 /* 화면 3 제출 현황 표 — 같은 행 문법의 읽기 전용판. 호버 반응을 꺼 상호작용으로 안 읽히게 한다 */
 .prow.ro { cursor: default; }
 .person:not(.required) .prow.ro:hover { background: transparent; }
-.role-text { font-size: 12px; color: var(--ink-sub); flex: none; }
-.sub-badge { font-size: 12px; font-weight: 600; flex: none; }
-.sub-badge.wait { font-weight: 400; color: var(--ink-faint); }
+/* 상태 칩 — 역할 칩(.role)과 같은 크기 문법이라 행마다 열이 맞는다. 상태는 명도로만 구분 */
+.sub-pill {
+  font-size: 12px; font-weight: 600;
+  min-width: 80px; text-align: center;
+  padding: 5px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+  flex: none;
+}
+.sub-pill.wait { font-weight: 400; color: var(--ink-sub); }
+
+/* 알림 보내기 — 클릭 후 '알림 보냄'으로 짧아져도 열이 흔들리지 않게 폭을 고정.
+   제출자 행은 같은 폭 빈 칸(.nudge-spacer)을 둬 상태 칩 열을 지킨다 */
+.nudge, .nudge-spacer { width: 88px; flex: none; }
+.nudge { padding-left: 0; padding-right: 0; }
 
 /* ── 1. 전체 참여자 일정 ──
    프로필을 한 줄로 늘어놓고, 고른 사람의 일정만 화면 2와 같은 격자(.grid)로 보여준다.

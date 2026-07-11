@@ -2,7 +2,8 @@
 <html lang="ko">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 고정폭 뷰포트 — 모바일에선 데스크톱 레이아웃을 축소해 통째로 보여준다 (반응형 아님) -->
+  <meta name="viewport" content="width=1000">
   <title>회의 시간 정하기</title>
   <!-- 로고가 아니라 격자 픽토그램. 파일을 늘리지 않으려고 인라인으로 둔다. -->
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='7' fill='%231a1a1a'/><rect x='7' y='7' width='7' height='7' rx='1.5' fill='white'/><rect x='18' y='7' width='7' height='7' rx='1.5' fill='white'/><rect x='7' y='18' width='7' height='7' rx='1.5' fill='white'/><rect x='18' y='18' width='7' height='7' rx='1.5' fill='white'/></svg>">
@@ -313,15 +314,15 @@
     <section class="step" data-step="3">
       <header class="head">
         <h1>회의를 결정합시다</h1>
-        <p class="sub" id="agg-sub"></p>
       </header>
 
       <h2 class="sec-title">아래 인원이 의견을 제출했어요</h2>
-      <div class="cs-avatars" id="agg-avatars"></div>
-      <!-- 제출 현황 표 — 화면 1 인원 목록과 같은 행 문법, 읽기 전용 (renderAggPeople이 채운다) -->
+      <!-- 제출 현황 표 — 화면 1 인원 목록과 같은 행·칩 문법, 읽기 전용 (renderAggPeople이 채운다) -->
       <ul class="people" id="agg-people"></ul>
 
       <h2 class="sec-title">일정을 선택해주세요</h2>
+      <!-- 뷰 전환 피커 — 격자를 바꾸는 도구라 격자 위에 둔다 -->
+      <div class="cs-avatars" id="agg-avatars"></div>
       <!-- 개인 뷰는 현황 확인용 — 선택이 안 되는 이유를 침묵하지 않고 말한다 (renderAggView가 채운다) -->
       <p class="note" id="agg-view-note" hidden></p>
 
