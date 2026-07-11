@@ -394,7 +394,18 @@ select.pick {
 /* ── 1. 전체 참여자 일정 ──
    프로필을 한 줄로 늘어놓고, 고른 사람의 일정만 화면 2와 같은 격자(.grid)로 보여준다.
    여기도 '불가능'만 나온다. */
-.cs-avatars { display: flex; justify-content: flex-start; gap: 8px; margin-top: 24px; flex-wrap: wrap; }
+/* 뷰 피커(화면 1·3)는 데모바 아래에 붙는다 — 긴 격자를 스크롤해 내려가 표를 보는
+   동안에도 보는 대상(전체/필수/개인)이 무엇인지 보이고, 그 자리에서 바꿀 수 있어야 한다.
+   top 48px = 데모바 높이(1px 겹침 쪽으로 보정 — 틈으로 격자가 비치는 것보다 낫다). */
+.cs-avatars {
+  display: flex; justify-content: flex-start; gap: 8px; flex-wrap: wrap;
+  position: sticky;
+  top: 48px;
+  z-index: 50; /* 데모바(100) 아래, 격자·팝오버(20) 위 */
+  background: var(--bg);
+  margin-top: 12px;
+  padding: 12px 0 10px; /* 원래 margin-top 24px를 12+12로 나눠 — 붙어 있을 때 위쪽 숨 */
+}
 .cs-avatar-btn {
   display: flex; flex-direction: column; align-items: center; gap: 4px;
   padding: 8px 10px;

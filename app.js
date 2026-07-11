@@ -380,10 +380,10 @@ function avatar(p) {
 function buildGrid(el, prefix, person) {
   el.innerHTML = '';
   const cols = Math.min(7, DAYS.length);
-  // 주말 컬럼은 선택 불가 죽은 공간이라 좁게(0.45fr). 줄바꿈이 7일 간격이라
-  // 같은 컬럼 = 항상 같은 요일 — 첫 주 인덱스(WEEKEND[i])로 판정해도 안전하다.
+  // 주말 컬럼은 선택 불가 죽은 공간이라 좁게(0.28fr — 날짜 라벨 min-content가 바닥을 지켜준다).
+  // 줄바꿈이 7일 간격이라 같은 컬럼 = 항상 같은 요일 — 첫 주 인덱스(WEEKEND[i])로 판정해도 안전하다.
   el.style.gridTemplateColumns =
-    `56px ${Array.from({ length: cols }, (_, i) => (WEEKEND[i] ? '0.45fr' : '1fr')).join(' ')}`;
+    `56px ${Array.from({ length: cols }, (_, i) => (WEEKEND[i] ? '0.28fr' : '1fr')).join(' ')}`;
 
   const shownBusy = prefix === 'in' ? busySlots(person || me) : null;
 
