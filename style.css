@@ -98,6 +98,22 @@ body {
 .steps button.on { background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.07); }
 .steps button.on, .steps button.on b { color: var(--ink); }
 
+/* 터치 기기 안내 — 뷰포트가 1000 고정이라 폰에선 화면 전체가 축소된다.
+   레이아웃 폭이 늘 1000이라 max-width 미디어쿼리로는 폰을 못 잡는다 — 입력 장치로 판정.
+   글자도 함께 축소되므로 레이아웃 픽셀 기준으로 크게 써야 폰에서 보통 크기로 읽힌다. */
+.pc-note { display: none; }
+@media (pointer: coarse) {
+  .pc-note {
+    display: block;
+    padding: 18px 20px;
+    text-align: center;
+    font-size: 26px;
+    color: var(--demo-ink);
+    background: var(--surface-strong);
+    border-bottom: 1px solid var(--line-strong);
+  }
+}
+
 main {
   max-width: 900px;
   margin: 0 auto;
@@ -444,10 +460,12 @@ select.pick {
 .cs-stage { position: relative; margin-top: 16px; margin-bottom: 44px; }
 #grid-combined { margin: 0; }
 
-/* 칸 클릭 시 옆에 뜨는 팝업. 화살표가 클릭한 칸 쪽을 가리킨다. */
+/* 칸 클릭 시 옆에 뜨는 팝업. 화살표가 클릭한 칸 쪽을 가리킨다.
+   90 = 고정된 날짜 헤더(30)·피커/트레이(50~60) 위, 데모바(100)·모달(200) 아래 —
+   일시적 정보라 고정 크롬에 잘리면 안 된다. */
 .cs-popover {
   position: absolute;
-  z-index: 20;
+  z-index: 90;
   background: var(--bg);
   border: 1px solid var(--line);
   border-radius: 10px;
@@ -528,11 +546,6 @@ button.role { cursor: pointer; }
 .role.required { color: #fff; background: var(--ink); border-color: var(--ink); }
 button.role:hover { border-color: var(--line-strong); }
 button.role.required:hover { background: #000; border-color: #000; }
-
-/* 주최자는 토글이 아니라 사실이다 — 버튼이 아닌 라벨로 렌더해 클릭을 막는다.
-   클릭 가능한 필수참여(채움)와 헷갈리지 않도록 채움 대신 테두리만 준다. */
-.role.fixed { cursor: default; }
-.role.fixed.required { color: var(--ink); background: #fff; border-width: 2px; }
 
 /* 이름 옆 '주최자' — 박스 없이 작은 글자로, 이름 바로 왼쪽(role 칩보다 앞)에 붙인다. */
 .host-tag, .team-tag { font-size: 12px; font-weight: 500; color: var(--ink-sub); }
@@ -687,6 +700,8 @@ button.role.required:hover { background: #000; border-color: #000; }
 
 /* ── 3. 선택 확인 표 ── */
 .ft-text.placeholder { color: var(--ink-sub); font-weight: 400; }
+.att-line { display: block; } /* 참여자 현황 — 인물당 한 줄 */
+.att-avoid { color: var(--avoid-max); } /* 기피 상태 글자 — 색은 데이터에만 */
 
 /* ── footer ── */
 .foot { display: flex; align-items: center; gap: 16px; margin-top: 40px; }
@@ -781,6 +796,63 @@ button.role.required:hover { background: #000; border-color: #000; }
 .brush:hover { border-color: var(--line-strong); background: var(--surface); }
 .brush.on { border-color: var(--ink); background: var(--surface); color: var(--ink); font-weight: 600; }
 .brush .sw-ramp { width: 34px; } /* 버튼 안에선 램프를 짧게 — 라벨이 주인공 */
+
+/* ── 2. 스크롤 중에도 도구·날짜·범례가 보인다 ──
+   2주 격자는 화면보다 길다. 위(브러시+트레이 묶음)는 데모바 아래에, 날짜 헤더는 그 아래에,
+   범례는 뷰포트 바닥에 붙는다. 뷰포트가 1000 고정이라 높이 상수가 안전하다. */
+.paint-chrome {
+  position: sticky;
+  top: 48px; /* 데모바 높이 */
+  z-index: 60; /* 데모바(100) 아래, 날짜 헤더(30) 위 */
+  margin-top: 4px;
+  padding-top: 12px; /* 원래 위 여백 16 = margin 4 + padding 12 — 붙었을 때 데모바와의 숨 */
+  background: var(--bg);
+}
+.paint-chrome .brush-row { margin-top: 0; }
+
+/* 날짜 헤더 — 크롬 묶음 바로 아래. 163 = 데모바 48 + 크롬 높이(≤123) − 겹침 여유
+   (부족하면 틈으로 격자가 비치므로 겹침 쪽으로 크게 — 트레이 회색 바닥에 가려 안 보인다).
+   주 블록마다 헤더 행이 있어 겹쳐 쌓이지만, 나중 주가 같은 자리를 덮어 최신 날짜만 보인다. */
+#grid-input .corner, #grid-input .day {
+  position: sticky;
+  top: 163px;
+  z-index: 30; /* 격자 칸(라벨 z 1) 위 */
+  background: var(--bg);
+}
+
+/* 범례 — 격자를 다 내려가기 전에도 색의 뜻을 찾을 수 있게 바닥에 붙는다 */
+[data-step="2"] .legend, [data-step="3"] .legend {
+  position: sticky;
+  bottom: 0;
+  z-index: 30;
+  background: var(--bg);
+  margin-top: 8px;
+  padding: 10px 0 14px; /* 원래 간격 18 = margin 8 + padding 10 */
+}
+
+/* ── 3. 화면 3도 같은 고정 문법 — 피커는 공용(.cs-avatars)으로 이미 붙어 있다.
+   오프셋은 계산 높이보다 5px쯤 위로 — 폰트 렌더링 오차가 틈(격자 비침)이 아니라
+   겹침이 되게 한다. 겹침은 이웃의 불투명 배경·헤더 셀의 빈 위쪽(~9px)에 숨는다.
+   사이의 개인 뷰 안내문은 붙지 않고 피커 아래로 흘려보낸다 — 높이가 변해서 상수를 깨기 때문. */
+[data-step="3"] .board-tools {
+  position: sticky;
+  top: 135px; /* 데모바 48 + 피커 상자(≤92.5) − 여유 */
+  z-index: 50; /* 피커와 같은 층 — DOM이 나중이라 겹치는 순간엔 트레이가 위 */
+}
+#grid-agg .corner, #grid-agg .day {
+  position: sticky;
+  top: 177px; /* 트레이 135 + 트레이 높이(≤47.5) − 여유 */
+  z-index: 30;
+  background: var(--bg);
+}
+
+/* 화면 1 미리보기 격자 — 트레이가 없어 날짜 헤더가 피커 바로 아래에 붙는다. */
+#grid-combined .corner, #grid-combined .day {
+  position: sticky;
+  top: 134px; /* 데모바 48 + 피커 상자(≤92.5) − 여유 */
+  z-index: 30;
+  background: var(--bg);
+}
 
 /* ── 2. 업무 사유 모달 — 시작·종료 일시(날짜+시간)와 사유를 받는다 ──
    라벨이 짧아 본문 표(160px)보다 열을 좁혀

@@ -23,6 +23,9 @@
     </div>
   </nav>
 
+  <!-- 터치 기기 안내 — 데모바와 같은 '제품 아님' 회색 문법. PC에선 보이지 않는다. -->
+  <p class="pc-note">이 데모는 PC 화면에 맞춰 만들어졌어요</p>
+
   <main>
 
     <!-- ── 1. 주최자: 회의 만들기 ── -->
@@ -207,34 +210,37 @@
         </div>
       </div>
 
-      <h2 class="sec-title">피하고 싶은 시간을 칠해주세요</h2>
+      <h2 class="sec-title">피하고 싶은 시간을 선택해주세요</h2>
 
-      <!-- 무엇을 칠할지 — 기피의 두 종류. 스와치가 격자에 칠해질 모양 그대로다. -->
-      <div class="brush-row" role="radiogroup" aria-label="기피 종류">
-        <button type="button" class="brush on" data-brush="pick" aria-pressed="true">
-          <span class="sw sw-ramp rev"></span>특별한 사유가 없어요
-        </button>
-        <button type="button" class="brush" data-brush="reason" aria-pressed="false">
-          <span class="sw sw-reason"></span>업무 사유가 있어요
-        </button>
-      </div>
-
-      <!-- 격자를 조작하는 도구는 격자 바로 위에 — 왼쪽은 맥락(캘린더 수정), 오른쪽은 동작 버튼 -->
-      <div class="board-tools">
-        <div class="fix-cal">
-          <span class="fix-cal-q">잘못된 일정이 있나요?</span>
-          <a class="fix-cal-link" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">캘린더 수정하기<span aria-hidden="true"> ↗</span></a>
+      <!-- 브러시·트레이 묶음 — 격자를 스크롤하는 동안 데모바 아래에 붙어 따라온다 -->
+      <div class="paint-chrome">
+        <!-- 무엇을 칠할지 — 기피의 두 종류. 스와치가 격자에 칠해질 모양 그대로다. -->
+        <div class="brush-row" role="radiogroup" aria-label="기피 종류">
+          <button type="button" class="brush on" data-brush="pick" aria-pressed="true">
+            <span class="sw sw-ramp rev"></span>특별한 사유가 없어요
+          </button>
+          <button type="button" class="brush" data-brush="reason" aria-pressed="false">
+            <span class="sw sw-reason"></span>업무 사유가 있어요
+          </button>
         </div>
-        <button type="button" class="tool-btn" id="save-default">기본값 저장하기</button>
-        <button type="button" class="tool-btn" id="load-default">불러오기</button>
-        <button type="button" class="tool-btn" id="clear-picks">모두 지우기</button>
+
+        <!-- 격자를 조작하는 도구는 격자 바로 위에 — 왼쪽은 맥락(캘린더 수정), 오른쪽은 동작 버튼 -->
+        <div class="board-tools">
+          <div class="fix-cal">
+            <span class="fix-cal-q">잘못된 일정이 있나요?</span>
+            <a class="fix-cal-link" href="https://calendar.google.com/calendar/r" target="_blank" rel="noopener">캘린더 수정하기<span aria-hidden="true"> ↗</span></a>
+          </div>
+          <button type="button" class="tool-btn" id="save-default">기본값 저장하기</button>
+          <button type="button" class="tool-btn" id="load-default">불러오기</button>
+          <button type="button" class="tool-btn" id="clear-picks">모두 지우기</button>
+        </div>
       </div>
 
       <div class="board">
         <div class="grid" id="grid-input" aria-label="다음 주 시간표"></div>
         <ul class="legend">
           <li><span class="sw sw-ok"></span>가능</li>
-          <li><span class="sw sw-ramp rev"></span>피하고 싶음 — 칠할수록 옅어짐</li>
+          <li><span class="sw sw-ramp rev"></span>피하고 싶음 — 선택할수록 옅어짐</li>
           <li><span class="sw sw-reason"></span>업무 사유</li>
           <li><span class="sw sw-busy"></span>캘린더상 일정 있음</li>
           <li><span class="sw sw-lunch"></span>근무시간 아님</li>
@@ -352,17 +358,15 @@
           <div class="ft-label">회의 일시</div>
           <div class="ft-value"><span class="ft-text placeholder" id="pick-when">테이블에서 원하는 일시를 선택해주세요</span></div>
         </div>
+        <!-- 인물당 한 줄 — 기피(피하고 싶음·업무 사유)는 상태가 데이터색으로 물든다.
+             별도 사유·기피 행은 없앴다: 같은 정보가 인물 줄에 인라인으로 들어간다. -->
         <div class="ft-row">
-          <div class="ft-label">참석자 현황</div>
-          <div class="ft-value"><span class="ft-text" id="pick-att">—</span></div>
+          <div class="ft-label">필수 참여자 현황</div>
+          <div class="ft-value"><span class="ft-text" id="pick-req">—</span></div>
         </div>
-        <div class="ft-row" id="pick-reason-row" hidden>
-          <div class="ft-label">업무 사유가 있는 사람</div>
-          <div class="ft-value"><span class="ft-text" id="pick-reason"></span></div>
-        </div>
-        <div class="ft-row" id="pick-avoid-row" hidden>
-          <div class="ft-label">피하고 싶어한 사람</div>
-          <div class="ft-value"><span class="ft-text" id="pick-avoid"></span></div>
+        <div class="ft-row">
+          <div class="ft-label">선택 참여자 현황</div>
+          <div class="ft-value"><span class="ft-text" id="pick-opt">—</span></div>
         </div>
       </div>
 

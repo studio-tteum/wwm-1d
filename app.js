@@ -144,11 +144,12 @@ let REMOVED = []; // ×로 뺀 사람 — 원래 데이터(불가능 시간·역
 
 /* '나'(지훈)는 화면 2에서 실제로 칠하는 사람이다. 의견은 모든 참여자에게서 받으므로
    역할이 선택으로 바뀌어도 '나'는 유지된다 — 화면 2 제목이 역할을 알려줄 뿐이다.
-   지훈을 목록에서 뺐을 때만 다음 필수 참여자에게 넘긴다(서연은 항상 필수라 끊기지 않는다). */
+   지훈을 목록에서 뺐을 때만 다음 필수 참여자에게 넘긴다. 필수가 아무도 없으면
+   첫 참여자에게 — 주최자는 목록에서 뺄 수 없으므로 목록은 비지 않는다. */
 let me = PEOPLE.find(p => p.name === '지훈');
 function ensureMe() {
   if (PEOPLE.includes(me)) return;
-  me = required()[0];
+  me = required()[0] || PEOPLE[0];
 }
 
 /* 시간 단위 fixture 항목 하나('1-15')를 반시간 두 칸으로 펼친다. picks는 제목이 없는 문자열. */
@@ -395,7 +396,8 @@ function buildGrid(el, prefix, person) {
 
     el.append(div('corner'));
     for (let i = 0; i < cols; i++) {
-      if (i >= week.length) { el.append(div('out')); continue; } // 기간 밖 — 빈 자리
+      // 기간 밖 빈 자리 — 헤더 행 것은 날짜 헤더와 함께 상단에 붙어야 해서 .day를 같이 단다
+      if (i >= week.length) { el.append(div('day out')); continue; }
       const d = week[i];
       const head = div(WEEKEND[d] ? 'day we' : 'day');
       head.innerHTML = `<b>${DAYS[d]}</b><i>${DATES[d]}</i>`;
@@ -451,11 +453,9 @@ const paintable = el =>
 
 /* ── 화면 1: 참여자 ── */
 
-/* 주최자의 '필수참여'는 토글이 아니라 사실이다. 버튼이 아닌 라벨로 렌더해 클릭을 막는다.
-   '주최자'라는 사실 자체는 이름 옆 별도 배지로 뗀다. */
-const roleControl = p => p.host
-  ? `<span class="role required fixed" title="주최자는 항상 필수 참여자입니다">필수참여</span>`
-  : `<button type="button" class="role ${p.role}" aria-pressed="${p.role === 'required'}"
+/* 주최자도 다른 참여자와 같은 토글 — 주최자라는 사실(이름 옆 배지)과 참석 역할은 별개다. */
+const roleControl = p =>
+  `<button type="button" class="role ${p.role}" aria-pressed="${p.role === 'required'}"
        aria-label="${p.name} 필수 참여자">${p.role === 'required' ? '필수참여' : '선택참여'}</button>`;
 
 /* 목록 순서는 '주최자 맨 위, 나머지 ㄱㄴㄷ'. 정렬이 역할(필수/선택)을 안 보므로
@@ -663,7 +663,6 @@ document.getElementById('people').addEventListener('click', e => {
     renderPeople();
     return document.getElementById('add-btn').focus();
   }
-  if (p.host) return; // 주최자는 항상 필수
   p.role = p.role === 'required' ? 'optional' : 'required';
   renderPeople();
 
@@ -830,8 +829,11 @@ document.getElementById('dur-custom').addEventListener('change', () => {
 });
 
 /* ── 회의 설정: 기간 · 의견 마감 ──
-   마감일은 회의 날짜의 전날을 기본값으로 따라간다 — 날짜를 바꿀 때마다 다시 맞춘다. */
+   마감일은 회의 날짜의 전날을 기본값으로 따라간다 — 날짜를 바꿀 때마다 다시 맞춘다.
+   단, 사용자가 마감일을 손으로 바꾼 뒤에는 자동 재계산을 멈춘다. */
+let dueDateManuallySet = false;
 function syncDueDate() {
+  if (dueDateManuallySet) { checkDueDate(); return; }
   const anchor = document.getElementById('mode-fixed').checked
     ? document.getElementById('fixed-date').value
     : document.getElementById('start-date').value;
@@ -851,6 +853,7 @@ function checkDueDate() {
   document.getElementById('due-date').classList.toggle('invalid', bad);
 }
 document.getElementById('due-date').addEventListener('change', () => {
+  dueDateManuallySet = true;
   checkDueDate();
   syncMeta(); // 하단 요약·화면 2 표의 마감일 표기도 같이 맞춘다
 });
@@ -875,7 +878,9 @@ document.getElementById('start-date').addEventListener('change', onRangeChange);
 document.getElementById('end-date').addEventListener('change', onRangeChange);
 
 /* '원하는 날짜가 있어요'는 하루짜리 기간이다 — 고른 날짜를 시작=종료에 그대로 넣어
-   기존 격자·후보 계산(rebuildDays 이하)을 손대지 않고 그대로 태운다. */
+   기존 격자·후보 계산(rebuildDays 이하)을 손대지 않고 그대로 태운다.
+   fixed 모드로 넘어가며 지워지는 range 값은 savedRange에 보관했다가 되돌아올 때 복원한다. */
+let savedRange = null;
 function applyDateMode() {
   const fixed = document.getElementById('mode-fixed').checked;
   document.getElementById('body-fixed').hidden = !fixed;
@@ -885,13 +890,21 @@ function applyDateMode() {
     const v = document.getElementById('fixed-date').value;
     document.getElementById('start-date').value = v;
     document.getElementById('end-date').value = v;
+  } else if (savedRange) {
+    document.getElementById('start-date').value = savedRange.start;
+    document.getElementById('end-date').value = savedRange.end;
   }
   rebuildDays();
   syncDueDate(); // 마감일 리셋이 먼저 — syncMeta가 리셋된 값으로 요약을 만든다
   syncMeta();
   renderCombinedSchedule();
 }
-document.getElementById('mode-fixed').addEventListener('change', applyDateMode);
+document.getElementById('mode-fixed').addEventListener('change', () => {
+  const start = document.getElementById('start-date').value;
+  const end = document.getElementById('end-date').value;
+  if (start && end) savedRange = { start, end };
+  applyDateMode();
+});
 document.getElementById('mode-range').addEventListener('change', applyDateMode);
 document.getElementById('fixed-date').addEventListener('change', applyDateMode);
 
@@ -1383,7 +1396,7 @@ function renderAggPeople() {
           ${p.team ? `<span class="team-tag">${p.team}</span>` : ''}
           ${p.host ? `<span class="name-sep" aria-hidden="true">|</span><span class="host-tag">주최자</span>` : ''}
         </span>
-        <span class="role ${p.role}${p.host ? ' fixed' : ''}">${p.role === 'required' ? '필수참여' : '선택참여'}</span>
+        <span class="role ${p.role}">${p.role === 'required' ? '필수참여' : '선택참여'}</span>
         <span class="sub-pill${p.submitted ? '' : ' wait'}">${p.submitted ? '제출완료' : '대기 중'}</span>
         ${p.submitted
           ? '<span class="nudge-spacer" aria-hidden="true"></span>'
@@ -1461,14 +1474,14 @@ function applyChoice(c) {
   btn.textContent = '확정하고 모든 참여자에게 알림 보내기';
   btn.disabled = !chosen;
   const when = document.getElementById('pick-when');
-  const att = document.getElementById('pick-att');
+  const reqEl = document.getElementById('pick-req');
+  const optEl = document.getElementById('pick-opt');
 
   if (!chosen) {
     when.textContent = '테이블에서 원하는 일시를 선택해주세요';
     when.classList.add('placeholder');
-    att.textContent = '—';
-    document.getElementById('pick-reason-row').hidden = true;
-    document.getElementById('pick-avoid-row').hidden = true;
+    reqEl.textContent = '—';
+    optEl.textContent = '—';
     return;
   }
 
@@ -1476,29 +1489,39 @@ function applyChoice(c) {
   when.textContent =
     `${DATES[chosen.d]}(${DAYS[chosen.d]}) ${fmtTime(chosen.t)}–${fmtTime(chosen.t + DURATION)}`;
 
-  /* 필수는 후보 정의상 전원 가능. 선택 참여자만 캘린더와 대조해 실계산한다. */
-  const free = optional().filter(p => {
-    const b = busySlots(p);
-    return !chosen.slots.some(s => b.has(s));
-  });
-  att.textContent =
-    `필수 참여자 ${required().length}명 전원 참석 가능 · 선택 참여자 ${free.length}/${optional().length}명 참석 가능`;
-
-  /* 주최자에게는 이름까지 — 이 시간을 피하고 싶다고 표시한 참여자(필수·선택 모두).
-     참여자끼리는 익명(화면 2)이지만, 결정하는 사람은 선택의 대가를 알아야 한다.
-     업무 사유는 따로 줄을 세우고 입력한 사유도 함께 보여준다 — 같은 기피가 아니라
-     더 무거운 기피다. 겹치면 업무 사유로 친다. */
-  const withReason = PEOPLE.filter(p => p.reasons.some(s => chosen.slots.includes(s)));
-  const avoiders = PEOPLE.filter(p =>
-    !withReason.includes(p) && p.picks.some(s => chosen.slots.includes(s)));
-  document.getElementById('pick-reason-row').hidden = !withReason.length;
-  document.getElementById('pick-reason').textContent = withReason.map(p => {
+  /* '이름: 상태' — 주최자는 선택의 대가를 이름 단위로 본다. 비고 없는 참석 가능
+     인원은 맨 위 한 줄로 묶고, 비고(불가·업무 사유 원문·피하고 싶음)가 있는 사람만
+     한 줄씩 — 상태 글자는 데이터색으로 물든다.
+     우선순위: 캘린더 불가 > 업무 사유 > 피하고 싶음 > 참석 가능. (필수는 후보 정의상 불가 없음)
+     사유는 사용자 입력이라 innerHTML 대신 DOM으로 만든다. */
+  const personStatus = p => {
+    if (chosen.slots.some(s => busySlots(p).has(s))) return { text: '참석 불가', avoid: true };
     const slot = p.reasons.find(s => chosen.slots.includes(s));
-    const note = (p.notes || {})[slot];
-    return note ? `${p.name} — ${note}` : p.name;
-  }).join(', ');
-  document.getElementById('pick-avoid-row').hidden = !avoiders.length;
-  document.getElementById('pick-avoid').textContent = avoiders.map(p => p.name).join(', ');
+    if (slot) return { text: (p.notes || {})[slot] || '업무 사유 있음', avoid: true };
+    if (p.picks.some(s => chosen.slots.includes(s))) return { text: '피하고 싶음', avoid: false };
+    return { text: '참석 가능', avoid: false };
+  };
+  const fillStatus = (el, people) => {
+    el.textContent = '';
+    if (!people.length) { el.textContent = '—'; return; }
+    const line = (label, st) => {
+      const row = document.createElement('span');
+      row.className = 'att-line';
+      row.textContent = `${label}: `;
+      const s = document.createElement('span');
+      if (st.avoid) s.className = 'att-avoid';
+      s.textContent = st.text;
+      row.append(s);
+      el.append(row);
+    };
+    // 묶음 판정은 '비고 없음'(상태 텍스트) 기준 — 색 여부와 별개다. 피하고 싶음은 기본색이지만 개별 줄.
+    const entries = people.map(p => [p, personStatus(p)]);
+    const ok = entries.filter(([, st]) => st.text === '참석 가능');
+    if (ok.length) line(ok.map(([p]) => p.name).join(', '), { text: '참석 가능', avoid: false });
+    entries.filter(([, st]) => st.text !== '참석 가능').forEach(([p, st]) => line(p.name, st));
+  };
+  fillStatus(reqEl, required());
+  fillStatus(optEl, optional());
 }
 
 document.getElementById('agg-avatars').addEventListener('click', e => {
